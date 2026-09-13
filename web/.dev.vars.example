@@ -1,0 +1,6 @@
+# Workers AI model used for generation. Swap freely — see
+# https://developers.cloudflare.com/workers-ai/models/
+AI_MODEL="@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+
+# Copy to .dev.vars for local dev. In production, set these as Worker secrets/vars:
+#   npx wrangler secret put AI_MODEL

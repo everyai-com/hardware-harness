@@ -278,6 +278,7 @@ export const SURFACE_QUALITY: Record<ProcessId, number> = {
   sls_mjf: 3,
   cnc_3axis: 5,
   sheet_metal: 4,
+  pcb_assembly: 4,
   soft_tool: 5,
   injection_molding: 5,
   injection_molding_multicavity: 5,

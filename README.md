@@ -95,6 +95,31 @@ See `harness/README.md` for the tool list and MCP wiring.
 
 ---
 
+## The platform — `web/`
+
+**LUXO** — the open-source Blueprint.io alternative and the distribution layer for everything above.
+A Hugging Face-style hub for hardware, deployed entirely on Cloudflare (Next.js on Workers, D1, R2,
+KV, Workers AI). MIT licensed, one-click self-hostable.
+
+- **Generate** — prompt → design spec (BOM, wiring, assembly guide) → scored by the same harness →
+  public gallery. Workers AI free tier, no API keys.
+- **Explore** — every design is public and remixable, Midjourney-style: show people what's possible.
+- **Kits** — open-source projects with prebuilt-kit paths. Flagship: Petoi's OpenCat/Bittle — open
+  everything, sell the verified kit. The model for the eventual robotics line.
+- **Leaderboard + agent API** — `POST /api/designs` is push-to-hub for agents; as they adopt it, the
+  leaderboard stops ranking designs and starts ranking the models that produced them.
+
+```bash
+cd web
+npm install --include=dev
+npm run harness:verify   # prove the bundled engine scores identically to this CLI
+npm run dev
+```
+
+Deploy instructions: `web/README.md`.
+
+---
+
 ## The documents
 
 | File | What it answers |
