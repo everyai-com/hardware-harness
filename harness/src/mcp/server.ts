@@ -57,11 +57,11 @@ function asSpec(args: Record<string, unknown>): ProductSpec {
   }
   // Fill in defaults so a partially-specified design still evaluates.
   return {
-    targetQuantities: [1, 100, 1000],
-    origin: 'china',
-    operations: [],
-    interfaces: [],
     ...spec,
+    targetQuantities: spec.targetQuantities?.length ? spec.targetQuantities : [1, 100, 1000],
+    origin: spec.origin ?? 'china',
+    operations: spec.operations ?? [],
+    interfaces: spec.interfaces ?? [],
   };
 }
 
@@ -298,6 +298,15 @@ const TOOLS: ToolDef[] = [
           },
         ],
         interfaces: [{ id: 'string', between: ['[partId, partId]'], clearanceMm: 'number', contributors: ['partId[]'] }],
+        nets: [
+          {
+            id: 'string',
+            name: 'string - e.g. "3V3_RAIL", "I2C_SDA"',
+            signal: "'power'|'gnd'|'i2c'|'spi'|'uart'|'usb'|'gpio'|'analog'|'rf'|'other'",
+            endpoints: [{ part: 'partId', pin: 'string - e.g. "GPIO4", "VCC", "D+"' }],
+            voltage: 'number - for power nets',
+          },
+        ],
         operations: [{ id: 'string', label: 'string', minutes: 'number', improvised: 'boolean', wireCount: 'number' }],
         certificationsBudgeted: ['cert ids'],
         requiresSignedDrivers: 'boolean - USB audio/HID needing a signed OS driver',

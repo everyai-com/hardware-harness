@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { specSchema } from "@/lib/spec-schema";
 import { scoreSpec } from "@/lib/harness/score";
 import type { ProductSpec } from "@/lib/harness/score";
+import { withCors, corsPreflight } from "@/lib/cors";
 
 export const dynamic = "force-dynamic";
 
@@ -15,17 +16,23 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+    return withCors(NextResponse.json({ error: "invalid JSON body" }, { status: 400 }));
   }
 
   const parsed = specSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "spec failed validation", issues: parsed.error.issues.slice(0, 20) },
-      { status: 422 },
+    return withCors(
+      NextResponse.json(
+        { error: "spec failed validation", issues: parsed.error.issues.slice(0, 20) },
+        { status: 422 },
+      ),
     );
   }
 
   const report = scoreSpec(parsed.data as unknown as ProductSpec);
-  return NextResponse.json({ report });
+  return withCors(NextResponse.json({ report }));
+}
+
+export async function OPTIONS() {
+  return corsPreflight();
 }

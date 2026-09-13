@@ -1,14 +1,15 @@
 import { drizzle } from "drizzle-orm/d1";
 import { desc, eq, sql } from "drizzle-orm";
 import { getEnv } from "@/lib/cf";
-import { designs, kits, votes } from "./schema";
+import { designs, kits, votes, outcomes } from "./schema";
 
 function db() {
-  return drizzle(getEnv().DB, { schema: { designs, kits, votes } });
+  return drizzle(getEnv().DB, { schema: { designs, kits, votes, outcomes } });
 }
 
 export type DesignRow = typeof designs.$inferSelect;
 export type KitRow = typeof kits.$inferSelect;
+export type OutcomeRow = typeof outcomes.$inferSelect;
 
 export async function insertDesign(row: typeof designs.$inferInsert): Promise<void> {
   await db().insert(designs).values(row).onConflictDoNothing();
@@ -80,4 +81,13 @@ export async function hasVoted(designId: string, voterHash: string): Promise<boo
 export async function countDesigns(): Promise<number> {
   const rows = await db().select({ n: sql<number>`count(*)` }).from(designs);
   return Number(rows[0]?.n ?? 0);
+}
+
+export async function listOutcomes(designId: string): Promise<OutcomeRow[]> {
+  return db().select().from(outcomes).where(eq(outcomes.designId, designId)).orderBy(desc(outcomes.createdAt)).limit(50);
+}
+
+export async function addOutcome(row: typeof outcomes.$inferInsert): Promise<OutcomeRow> {
+  const inserted = await db().insert(outcomes).values(row).returning();
+  return inserted[0]!;
 }

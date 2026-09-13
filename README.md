@@ -79,7 +79,7 @@ node --test "tests/*.test.ts"     # 14 tests incl. the MCP transport
 node src/mcp/server.ts            # MCP server (stdio)
 ```
 
-**10 hard gates · 34 DFM rules · 16 failure modes · 16 MCP tools.**
+**10 hard gates · 36 DFM rules · 16 failure modes · 14 MCP tools.**
 
 What it catches today, on real published designs:
 

@@ -71,7 +71,8 @@ export function evaluateModel(inputs: ModelInputs): ModelOutcome {
   const monthlyCogs = round(cost * inputs.monthlyVolume);
   const monthlyGrossProfit = round((grossProfitPerUnit * inputs.monthlyVolume) - inputs.fixedMonthlyCostUsd);
   const variableHours = (labourMinutes * inputs.monthlyVolume) / 60;
-  const labourHours = round(variableHours + (inputs.fixedMonthlyLabourHours ?? 0), 1);
+  // 1-decimal rounding: hours to one place reads better in the table than 2.
+  const labourHours = Math.round((variableHours + (inputs.fixedMonthlyLabourHours ?? 0)) * 10) / 10;
   const profitPerHour = labourHours > 0 ? round((grossProfitPerUnit * inputs.monthlyVolume) / labourHours) : 0;
 
   let verdict: ModelOutcome['verdict'] = 'unviable';

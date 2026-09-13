@@ -4,6 +4,7 @@ import { createDesign } from "@/lib/create-design";
 import { listDesigns } from "@/lib/db/queries";
 import { rateLimit } from "@/lib/cf";
 import { voterHashFromHeaders } from "@/lib/voter";
+import { withCors, corsPreflight } from "@/lib/cors";
 
 export const dynamic = "force-dynamic";
 
@@ -13,18 +14,20 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const sort = (req.nextUrl.searchParams.get("sort") ?? "new") as "new" | "score" | "likes";
   const designs = await listDesigns(sort, 50);
-  return NextResponse.json({
-    designs: designs.map((d) => ({
-      id: d.id,
-      title: d.title,
-      score: d.scoreTotal,
-      gatesPassed: d.gatesPassed,
-      producedBy: d.producedBy,
-      remixOf: d.remixOf,
-      createdAt: d.createdAt,
-      url: `/d/${d.id}`,
-    })),
-  });
+  return withCors(
+    NextResponse.json({
+      designs: designs.map((d) => ({
+        id: d.id,
+        title: d.title,
+        score: d.scoreTotal,
+        gatesPassed: d.gatesPassed,
+        producedBy: d.producedBy,
+        remixOf: d.remixOf,
+        createdAt: d.createdAt,
+        url: `/d/${d.id}`,
+      })),
+    }),
+  );
 }
 
 /**
@@ -36,9 +39,11 @@ export async function POST(req: NextRequest) {
   const vh = await voterHashFromHeaders(req.headers);
   // 20 publishes per visitor per day — agents included. Score-only /api/evaluate stays unlimited.
   if (!(await rateLimit(`publish:${vh}`, 20))) {
-    return NextResponse.json(
-      { error: "Daily limit of 20 published designs reached. /api/evaluate is unlimited; self-host for unlimited publishes." },
-      { status: 429 },
+    return withCors(
+      NextResponse.json(
+        { error: "Daily limit of 20 published designs reached. /api/evaluate is unlimited; self-host for unlimited publishes." },
+        { status: 429 },
+      ),
     );
   }
 
@@ -46,14 +51,16 @@ export async function POST(req: NextRequest) {
   try {
     body = (await req.json()) as typeof body;
   } catch {
-    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
+    return withCors(NextResponse.json({ error: "invalid JSON body" }, { status: 400 }));
   }
 
   const parsed = specSchema.safeParse(body.spec);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "spec failed validation", issues: parsed.error.issues.slice(0, 20) },
-      { status: 422 },
+    return withCors(
+      NextResponse.json(
+        { error: "spec failed validation", issues: parsed.error.issues.slice(0, 20) },
+        { status: 422 },
+      ),
     );
   }
 
@@ -65,13 +72,19 @@ export async function POST(req: NextRequest) {
     remixOf: typeof body.remixOf === "string" ? body.remixOf : undefined,
   });
 
-  return NextResponse.json(
-    {
-      slug: created.slug,
-      score: created.scoreTotal,
-      gatesPassed: created.gatesPassed,
-      url: `/d/${created.slug}`,
-    },
-    { status: 201 },
+  return withCors(
+    NextResponse.json(
+      {
+        slug: created.slug,
+        score: created.scoreTotal,
+        gatesPassed: created.gatesPassed,
+        url: `/d/${created.slug}`,
+      },
+      { status: 201 },
+    ),
   );
+}
+
+export async function OPTIONS() {
+  return corsPreflight();
 }

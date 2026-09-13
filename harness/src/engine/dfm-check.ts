@@ -344,6 +344,37 @@ export function checkDFM(spec: ProductSpec): Finding[] {
     );
   }
 
+  // ---- electrical nets -------------------------------------------------------
+  // Interfaces say what must FIT; only nets say what must CONNECT. Without them
+  // the wiring cannot be checked - only guessed at.
+  if (electronicParts.length >= 2) {
+    const nets = spec.nets ?? [];
+    if (nets.length === 0) {
+      push(
+        'NO_NETS',
+        'product',
+        `${electronicParts.length} electronic parts but no electrical nets declared. The wiring cannot be checked - only guessed at.`,
+        'Declare the nets: every connection from part pin to part pin, including the power and ground rails.',
+        'warn',
+      );
+    } else {
+      const partIds = new Set(spec.parts.map((p) => p.id));
+      for (const net of nets) {
+        for (const ep of net.endpoints) {
+          if (!partIds.has(ep.part)) {
+            push(
+              'NET_UNKNOWN_PART',
+              net.id,
+              `Net "${net.name}" references part "${ep.part}", which is not in the bill of materials.`,
+              'Fix the part id or remove the endpoint. A connection to a phantom part is a guaranteed dead build.',
+              'block',
+            );
+          }
+        }
+      }
+    }
+  }
+
   // ---- firmware ------------------------------------------------------------
   const fw = spec.firmware;
   if (electronicParts.length >= 2) {

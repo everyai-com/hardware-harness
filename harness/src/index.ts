@@ -64,7 +64,11 @@ if (fulfilment) {
   console.log('| Model | Cost/unit | Gross | Margin | Labour | $/labour hr |');
   console.log('| --- | --- | --- | --- | --- | --- |');
   const r = compareFulfilment(inputs);
-  for (const [name, o] of [['One at a time', r.single], [`Batched x${inputs.batchSize}`, r.batched]]) {
+  const rows: Array<[string, typeof r.single]> = [
+    ['One at a time', r.single],
+    [`Batched x${inputs.batchSize}`, r.batched],
+  ];
+  for (const [name, o] of rows) {
     console.log(
       `| ${name} | $${o.totalCostUsd} | $${o.grossProfitUsd} | ${o.grossMarginPct}% | ${o.labourMinutesPerUnit} min | $${o.grossProfitPerLabourHourUsd} |`,
     );

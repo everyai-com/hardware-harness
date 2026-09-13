@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { getDesign, listRemixes, recordView, hasVoted } from "@/lib/db/queries";
+import { getDesign, listRemixes, recordView, hasVoted, listOutcomes } from "@/lib/db/queries";
 import { voterHashFromHeaders } from "@/lib/voter";
+import { getEnv } from "@/lib/cf";
+import { getQuote } from "@/lib/quotes";
 import type { EvaluationReport, ProductSpec } from "@/lib/harness/score";
 import { ScoreBadge } from "@/components/design-card";
 import { LikeButton } from "@/components/like-button";
 import { Gates, Metrics, Scorecard, CostTable, Findings } from "@/components/report-view";
 import { SpecView } from "@/components/spec-view";
+import { OutcomeLog } from "@/components/outcome-log";
 
 export const dynamic = "force-dynamic";
 
@@ -29,13 +32,29 @@ export default async function DesignPage({ params }: { params: Promise<{ slug: s
   const design = await getDesign(slug);
   if (!design) notFound();
 
-  await recordView(slug);
   const [remixes, h] = await Promise.all([listRemixes(slug), headers()]);
-  const voted = await hasVoted(slug, await voterHashFromHeaders(h));
+  const vh = await voterHashFromHeaders(h);
+  const [voted, outcomes] = await Promise.all([hasVoted(slug, vh), listOutcomes(slug)]);
+
+  // Count a view once per visitor per hour, so bots and reloads don't inflate it.
+  const viewKey = `v:${slug}:${vh}`;
+  if (!(await getEnv().KV.get(viewKey))) {
+    await getEnv().KV.put(viewKey, "1", { expirationTtl: 60 * 60 });
+    await recordView(slug);
+  }
 
   const report = JSON.parse(design.scoreJson) as EvaluationReport;
   const spec = JSON.parse(design.specJson) as ProductSpec;
   const original = design.remixOf ? await getDesign(design.remixOf) : undefined;
+
+  // Best-effort live quotes for the first few catalog parts with MPNs.
+  const mpns = spec.parts
+    .filter((p) => p.kind === "catalog" && p.source?.mpn)
+    .map((p) => p.source!.mpn!)
+    .slice(0, 6);
+  const quotes = mpns.length
+    ? new Map(await Promise.all(mpns.map(async (mpn) => [mpn, await getQuote(mpn)] as const)))
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -75,7 +94,8 @@ export default async function DesignPage({ params }: { params: Promise<{ slug: s
 
       <CostTable report={report} />
       <Findings report={report} />
-      <SpecView spec={spec} />
+      <SpecView spec={spec} quotes={quotes} />
+      <OutcomeLog outcomes={outcomes} />
 
       {(original || remixes.length > 0) && (
         <section className="rounded-xl border border-line bg-card p-5">

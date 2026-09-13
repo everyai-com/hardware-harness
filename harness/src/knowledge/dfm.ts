@@ -50,7 +50,9 @@ export type RuleId =
   | 'FIRMWARE_DOES_NOT_BUILD'
   | 'PINMAP_MISMATCH'
   | 'LIBRARIES_UNPINNED'
-  | 'FIRMWARE_UNTESTED';
+  | 'FIRMWARE_UNTESTED'
+  | 'NO_NETS'
+  | 'NET_UNKNOWN_PART';
 
 export const RULES: Record<RuleId, RuleDef> = {
   WALL_TOO_THIN: {
@@ -269,6 +271,20 @@ export const RULES: Record<RuleId, RuleDef> = {
     title: 'Firmware has never run on real hardware',
     rationale: 'Compiling is not running. Only a physical flash closes this. It is the last unverifiable claim before the build.',
     evidence: '"you never really know until you get the parts" - @pronounced_kyle',
+  },
+  NO_NETS: {
+    id: 'NO_NETS',
+    severity: 'warn',
+    title: 'Electrical connections are declared nowhere',
+    rationale: 'Interfaces say what must fit; only nets say what must connect. Without them the wiring is a guess, and generated designs routinely omit power and ground rails entirely.',
+    evidence: 'Every reviewed AI hardware tool tells the user to verify wiring by hand - Blueprint\'s own docs say "AI-generated wiring isn\'t 100% accurate - always verify".',
+  },
+  NET_UNKNOWN_PART: {
+    id: 'NET_UNKNOWN_PART',
+    severity: 'block',
+    title: 'A net references a part that does not exist in the BOM',
+    rationale: 'A connection to a phantom part is a guaranteed dead build - the most basic consistency check there is, and generated designs fail it constantly.',
+    evidence: 'Generated designs list modules that never appear in their own BOM (Blueprint voice note-taker: 5 electronic parts, no firmware, marketplace sourcing).',
   },
   ELECTRONICS_WITHOUT_PCB: {
     id: 'ELECTRONICS_WITHOUT_PCB',

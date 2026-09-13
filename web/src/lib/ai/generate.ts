@@ -16,6 +16,7 @@ Top-level fields:
 - "features": array of { "id", "label", "expectedFace": "front"|"back"|"left"|"right"|"top"|"bottom"|"internal", "actualFace": same enum, "present": boolean, "cosmetic": boolean } — declare where each user-visible feature belongs (expectedFace) and where your design actually puts it (actualFace)
 - "parts": array (rules below)
 - "interfaces": array of { "id", "between": [partIdA, partIdB], "clearanceMm": number, "contributors": [partIds] }
+- "nets": array of electrical connections (for anything with electronics). Each: { "id", "name": e.g. "3V3_RAIL"/"I2C_SDA"/"USB_DP", "signal": "power"|"gnd"|"i2c"|"spi"|"uart"|"usb"|"gpio"|"analog"|"rf"|"other", "endpoints": [{ "part": partId, "pin": e.g. "GPIO4", "VCC", "D+" }], "voltage": number for power nets }. Every interconnect must appear as a net, including the power and ground rails.
 - "operations": array of { "id", "label", "minutes": number, "improvised": false, "requiresSoldering"?: boolean, "wireCount"?: number }
 - "cad": { "opensClean": true, "watertight": true, "requiresManualRepair": false, "ercClean": true, "drcClean": true } (only claim true if the design really satisfies it)
 - "firmware": { "provided": boolean, "language", "toolchain", "builds": boolean, "testedOnHardware": boolean, "pinMapMatchesFootprints": boolean, "dependenciesPinned": boolean } (for electronic products)

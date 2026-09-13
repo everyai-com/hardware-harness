@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { rateLimit } from "@/lib/cf";
+import { getEnv, aiModel, rateLimit } from "@/lib/cf";
 import { generateSpec } from "@/lib/ai/generate";
 import { createDesign } from "@/lib/create-design";
 
@@ -33,5 +33,39 @@ export async function generateAction(formData: FormData): Promise<GenerateState>
     if (e && typeof e === "object" && "digest" in e) throw e;
     console.error("generateAction failed:", e instanceof Error ? e.stack : e);
     return { error: e instanceof Error ? e.message : "Generation failed — check the worker logs." };
+  }
+}
+
+/**
+ * Blueprint-style clarifying questions: up to 3 short questions whose answers
+ * most change the design. Best-effort — any failure returns [] and the
+ * generator proceeds with the prompt as-is.
+ */
+export async function clarifyAction(prompt: string): Promise<{ questions: string[] }> {
+  if (prompt.trim().length < 5) return { questions: [] };
+  try {
+    const env = getEnv();
+    const out = (await env.AI.run(aiModel(), {
+      messages: [
+        {
+          role: "system",
+          content:
+            'You are a hardware design assistant. Given a product idea, ask up to 3 short clarifying questions whose answers most change the design (power source, size, key components, budget, connectivity). Output ONLY a JSON array of strings, e.g. ["How is it powered?","What size?"]. If the idea is already fully specified, output [].',
+        },
+        { role: "user", content: prompt.slice(0, 500) },
+      ],
+      max_tokens: 300,
+      temperature: 0.3,
+    })) as unknown;
+
+    const resp = (out as { response?: unknown } | null)?.response ?? out;
+    const text = typeof resp === "string" ? resp : JSON.stringify(resp);
+    const m = text.match(/\[[\s\S]*?\]/);
+    if (!m) return { questions: [] };
+    const parsed: unknown = JSON.parse(m[0]);
+    if (!Array.isArray(parsed)) return { questions: [] };
+    return { questions: parsed.filter((q): q is string => typeof q === "string" && q.length > 3).slice(0, 3) };
+  } catch {
+    return { questions: [] };
   }
 }

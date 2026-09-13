@@ -112,6 +112,40 @@ export interface Interface {
   contributors: string[];
 }
 
+export type SignalKind =
+  | 'power'
+  | 'gnd'
+  | 'i2c'
+  | 'spi'
+  | 'uart'
+  | 'usb'
+  | 'gpio'
+  | 'analog'
+  | 'rf'
+  | 'other';
+
+/** One end of a net: a part, and optionally the pin on it. */
+export interface NetEndpoint {
+  part: string;
+  /** Pin / designator, e.g. "GPIO4", "VCC", "D+". Free text. */
+  pin?: string;
+}
+
+/**
+ * An electrical connection: one net, two or more endpoints. This is what makes
+ * wiring CHECKABLE - interfaces say what must fit, nets say what must connect.
+ */
+export interface Net {
+  id: string;
+  /** Human net name: "3V3_RAIL", "I2C_SDA", "USB_DP". */
+  name: string;
+  signal: SignalKind;
+  endpoints: NetEndpoint[];
+  /** For power nets, volts. */
+  voltage?: number;
+  note?: string;
+}
+
 export interface Operation {
   id: string;
   label: string;
@@ -141,6 +175,8 @@ export interface ProductSpec {
   features: FeatureIntent[];
   parts: Part[];
   interfaces: Interface[];
+  /** Electrical connections. Absent = the wiring is declared nowhere. */
+  nets?: Net[];
   operations: Operation[];
   /** Certification ids the designer has already accounted for. */
   certificationsBudgeted?: string[];

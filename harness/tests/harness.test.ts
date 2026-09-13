@@ -237,3 +237,49 @@ test('MCP: initialize, tools/list and tools/call all work over stdio', async () 
   const modes = JSON.parse(taxonomy.result.content[0].text);
   assert.ok(modes.length >= 15, 'failure taxonomy is populated');
 });
+
+test('Electronics with no nets are flagged: wiring is a guess', () => {
+  const spec: ProductSpec = structuredClone(ASTRA_LAMP);
+  delete spec.nets;
+  const findings = checkDFM(spec);
+  const noNets = findings.find((f) => f.ruleId === 'NO_NETS');
+  assert.ok(noNets, 'NO_NETS raised when a spec has electronics and no nets');
+  assert.equal(noNets!.severity, 'warn');
+});
+
+test('A net referencing a phantom part is a block', () => {
+  const spec: ProductSpec = structuredClone(ASTRA_LAMP);
+  spec.nets = [
+    {
+      id: 'n1',
+      name: '3V3_RAIL',
+      signal: 'power',
+      voltage: 3.3,
+      endpoints: [
+        { part: 'base', pin: 'VCC' },
+        { part: 'ghost-part', pin: '3V3' },
+      ],
+    },
+  ];
+  const findings = checkDFM(spec);
+  const bad = findings.find((f) => f.ruleId === 'NET_UNKNOWN_PART');
+  assert.ok(bad, 'NET_UNKNOWN_PART raised for the phantom endpoint');
+  assert.equal(bad!.severity, 'block');
+  assert.match(bad!.message, /ghost-part/);
+});
+
+test('Complete nets produce no net findings', () => {
+  const spec: ProductSpec = structuredClone(ASTRA_LAMP);
+  const partIds = new Set(spec.parts.map((p) => p.id));
+  spec.nets = [
+    {
+      id: 'n1',
+      name: '5V_RAIL',
+      signal: 'power',
+      voltage: 5,
+      endpoints: [...partIds].slice(0, 2).map((id) => ({ part: id, pin: 'V+' })),
+    },
+  ];
+  const findings = checkDFM(spec);
+  assert.ok(!findings.some((f) => f.ruleId === 'NET_UNKNOWN_PART'), 'no phantom-part findings');
+});

@@ -160,6 +160,22 @@ const interfaceSchema = z.object({
   contributors: z.array(z.string()).default([]),
 });
 
+const SIGNALS = ["power", "gnd", "i2c", "spi", "uart", "usb", "gpio", "analog", "rf", "other"] as const;
+
+const netEndpointSchema = z.object({
+  part: z.string().min(1),
+  pin: z.string().optional(),
+});
+
+const netSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  signal: lcEnum(SIGNALS).default("other"),
+  endpoints: z.array(netEndpointSchema).min(2),
+  voltage: num.positive().optional(),
+  note: z.string().optional(),
+});
+
 const powerSchema = z.object({
   mainsInside: z.boolean().default(false),
   wireless: lcEnum(WIRELESS).default("none"),
@@ -208,6 +224,7 @@ export const specSchema = z.object({
   features: z.array(featureIntentSchema).default([]),
   parts: z.array(partSchema).min(1),
   interfaces: z.array(interfaceSchema).default([]),
+  nets: z.array(netSchema).optional(),
   operations: z.array(operationSchema).min(1),
   certificationsBudgeted: z.array(z.string()).optional(),
   requiresSignedDrivers: z.boolean().optional(),
