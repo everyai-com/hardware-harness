@@ -1,0 +1,21 @@
+{
+  "name": "hardware-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Model-agnostic hardware design harness: DFM rules, process selection, landed cost and build gates, exposed as MCP tools for Claude Code, Codex or any agent.",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "main": "src/index.ts",
+  "scripts": {
+    "demo": "node src/index.ts",
+    "mcp": "node src/mcp/server.ts",
+    "test": "node --test \"tests/*.test.ts\"",
+    "check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+!.env.example
+apify-output/
+.DS_Store
+
+data_x_comments.csv
+.commandcode/

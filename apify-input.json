@@ -1,0 +1,11 @@
+{
+  "tweetIds": ["2098072497182666987"],
+  "collectionStrategy": "auto",
+  "scope": "all",
+  "maxDepth": 5,
+  "sort": "oldest",
+  "outputMode": "full",
+  "outputPreset": "flat",
+  "fieldStyle": "camelCase",
+  "maxItems": 10000
+}
