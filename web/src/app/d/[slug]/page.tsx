@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { getDesign, listRemixes, recordView, hasVoted, listOutcomes } from "@/lib/db/queries";
+import { getDesign, listRemixes, recordView, hasVoted, listOutcomes, parseStoredJson } from "@/lib/db/queries";
 import { voterHashFromHeaders } from "@/lib/voter";
 import { getEnv } from "@/lib/cf";
 import { getQuote } from "@/lib/quotes";
@@ -15,37 +16,64 @@ import { OutcomeLog } from "@/components/outcome-log";
 
 export const dynamic = "force-dynamic";
 
+/** One D1 read per request, shared by generateMetadata and the page. */
+const designBySlug = cache(getDesign);
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const design = await getDesign(slug);
+  const design = await designBySlug(slug);
   if (!design) return { title: "Not found — LUXO" };
+
+  const report = parseStoredJson<EvaluationReport>(design.scoreJson);
+  const blocks = report?.metrics.blockCount;
+  const title = `${design.title} — ${design.scoreTotal.toFixed(2)}/5 ${design.gatesPassed ? "PASS" : "FAIL"} — LUXO`;
+  const description = design.gatesPassed
+    ? "Passed every LuxoBench build gate. Scored by the harness: DFM, landed cost, assembly, firmware."
+    : blocks !== undefined
+      ? `Failed the build gates with ${blocks} blocking finding${blocks === 1 ? "" : "s"}. Scored by the harness: DFM, landed cost, assembly, firmware.`
+      : "Scored by the LuxoBench harness: DFM, landed cost, assembly, firmware.";
+
   return {
-    title: `${design.title} — ${design.scoreTotal.toFixed(2)}/5 ${design.gatesPassed ? "PASS" : "FAIL"} — LUXO`,
-    description: design.gatesPassed
-      ? `Passed all LuxoBench build gates. Scored by the harness: DFM, landed cost, assembly.`
-      : `Failed ${JSON.parse(design.scoreJson).metrics.blockCount} build gates. Scored by the harness: DFM, landed cost, assembly.`,
+    title,
+    description,
+    alternates: { canonical: `/d/${slug}` },
+    openGraph: {
+      type: "article",
+      title,
+      description,
+      url: `/d/${slug}`,
+    },
+    twitter: { card: "summary_large_image", title, description },
   };
 }
 
 export default async function DesignPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const design = await getDesign(slug);
+  const design = await designBySlug(slug);
   if (!design) notFound();
+
+  const report = parseStoredJson<EvaluationReport>(design.scoreJson);
+  const spec = parseStoredJson<ProductSpec>(design.specJson);
+  // A corrupt row is a server-side problem, and the error boundary says so. Rendering
+  // an empty scorecard would quietly claim the design scored nothing.
+  if (!report || !spec) {
+    throw new Error(`design "${slug}" has an unreadable stored spec or report`);
+  }
 
   const [remixes, h] = await Promise.all([listRemixes(slug), headers()]);
   const vh = await voterHashFromHeaders(h);
   const [voted, outcomes] = await Promise.all([hasVoted(slug, vh), listOutcomes(slug)]);
 
   // Count a view once per visitor per hour, so bots and reloads don't inflate it.
+  let views = design.views;
   const viewKey = `v:${slug}:${vh}`;
   if (!(await getEnv().KV.get(viewKey))) {
     await getEnv().KV.put(viewKey, "1", { expirationTtl: 60 * 60 });
     await recordView(slug);
+    views += 1;
   }
 
-  const report = JSON.parse(design.scoreJson) as EvaluationReport;
-  const spec = JSON.parse(design.specJson) as ProductSpec;
-  const original = design.remixOf ? await getDesign(design.remixOf) : undefined;
+  const original = design.remixOf ? await designBySlug(design.remixOf) : undefined;
 
   // Best-effort live quotes for the first few catalog parts with MPNs.
   const mpns = spec.parts
@@ -63,7 +91,7 @@ export default async function DesignPage({ params }: { params: Promise<{ slug: s
           <ScoreBadge total={design.scoreTotal} gates={design.gatesPassed} className="text-sm" />
           <span className="text-sm text-muted">
             by {design.producedBy ?? design.author} · {new Date(design.createdAt).toISOString().slice(0, 10)} ·{" "}
-            {design.views + 1} views
+            {views} views
           </span>
         </div>
         <h1 className="text-3xl font-bold">{design.title}</h1>
@@ -95,7 +123,7 @@ export default async function DesignPage({ params }: { params: Promise<{ slug: s
       <CostTable report={report} />
       <Findings report={report} />
       <SpecView spec={spec} quotes={quotes} />
-      <OutcomeLog outcomes={outcomes} />
+      <OutcomeLog outcomes={outcomes} designId={design.id} />
 
       {(original || remixes.length > 0) && (
         <section className="rounded-xl border border-line bg-card p-5">

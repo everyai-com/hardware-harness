@@ -101,6 +101,38 @@ export const VOICE_NOTE_FIXED: ProductSpec = {
     { id: 'shells', between: ['top_shell', 'bottom_shell'], clearanceMm: 0.6, contributors: ['top_shell', 'bottom_shell'] },
     { id: 'board-to-shell', between: ['main_pcb', 'bottom_shell'], clearanceMm: 0.5, contributors: ['main_pcb'] },
   ],
+  /**
+   * This is the one fixture that declares its wiring, and it is the point of the
+   * counter-example: everything else on the board is inside the assembled PCB, so the
+   * entire electrical interface is the single JST lead the build step describes.
+   *
+   * The model-generated fixtures deliberately declare nothing here. Their NO_NETS
+   * warning is a finding about them, not an omission in this file - generated designs
+   * routinely specify a battery and a charger without ever stating which pin goes where.
+   */
+  nets: [
+    {
+      id: 'vbat',
+      name: 'VBAT_3V7',
+      signal: 'power',
+      voltage: 3.7,
+      endpoints: [
+        { part: 'battery', pin: 'BAT+' },
+        { part: 'main_pcb', pin: 'VBAT' },
+      ],
+      note: 'Single JST-PH lead, keyed so it cannot be reversed.',
+    },
+    {
+      id: 'gnd',
+      name: 'GND',
+      signal: 'gnd',
+      endpoints: [
+        { part: 'battery', pin: 'GND' },
+        { part: 'main_pcb', pin: 'GND' },
+      ],
+      note: 'Return path, same connector.',
+    },
+  ],
   operations: [
     { id: 'op-print', label: 'Print two shells and the gasket (one print order)', minutes: 10, improvised: false },
     { id: 'op-cure', label: 'Clean and cure resin parts', minutes: 15, improvised: false },

@@ -89,8 +89,20 @@ verify — and it is the only thing here that gets harder to copy over time rath
   pricing claim and sell only the build.
 - **If nobody will pay for a verified build after 10 conversations**, the market wants entertainment,
   not verification. Pivot the same engine to eval/benchmark-as-a-service for labs and stop buying parts.
-- **If a generator publishes signed receipts first** (Blueprint, Artilora or RapidDirect), the window
-  has closed and you are a feature, not a company. Move to the niche-kit model or to the eval business.
+- **If a generator publishes signed receipts first** (Blueprint, Artilora, RapidDirect — or **Schematik**,
+  which is the one with the user base, the lightspeed money and a contest full of published working
+  builds), the window has closed and you are a feature, not a company. Move to the niche-kit model or to
+  the eval business.
+
+### The competitor to watch, named
+
+`PROCESS.md` §3 covers this in full. The short version: **Schematik** ("Cursor for Hardware", $4.6M led
+by Lightspeed, 100k+ users, WIRED-covered, 6,021-part catalogue, M5Stack Build Season) already owns
+prompt → maker electronics → flash it. It is one integration away from owning the receipt, and the
+cheapest way for it to get one is to add three fields to the contest it is already running: **what did
+it cost, how long did it take, what arrived wrong.** If that happens, this plan loses its wedge and
+becomes a feature. The counter is speed: publish receipts with numbers before a photo contest decides
+that photos are enough.
 
 ## The one honest risk
 

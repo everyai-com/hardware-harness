@@ -12,7 +12,9 @@ Top-level fields:
 - "targetRetailUsd": number (optional)
 - "targetQuantities": exactly [1, 100, 1000]
 - "origin": "china" | "domestic" | "other"
-- "power": { "mainsInside": boolean, "wireless": "none"|"bluetooth"|"wifi"|"lte"|"custom", "battery": "none"|"lithium"|"alkaline", "usbPowered": boolean }
+- "markets": array of "us" | "eu" | "uk" | "ca" — where it will be SOLD. This decides CE/GPSR and the EU battery rules, so state it honestly rather than defaulting to "us".
+- "audience": "adult" | "general" | "children" — a children's product triggers CPSIA testing. Say "children" if the object is a toy, however cute it looks.
+- "power": REQUIRED and must be explicit — { "mainsInside": boolean, "wireless": "none"|"bluetooth"|"wifi"|"lte"|"custom", "battery": "none"|"lithium"|"alkaline", "usbPowered": boolean, "radioModulePrecertified": boolean if a certified radio module is used as-is }
 - "features": array of { "id", "label", "expectedFace": "front"|"back"|"left"|"right"|"top"|"bottom"|"internal", "actualFace": same enum, "present": boolean, "cosmetic": boolean } — declare where each user-visible feature belongs (expectedFace) and where your design actually puts it (actualFace)
 - "parts": array (rules below)
 - "interfaces": array of { "id", "between": [partIdA, partIdB], "clearanceMm": number, "contributors": [partIds] }
@@ -24,7 +26,7 @@ Top-level fields:
 - "provenance": short string
 
 Parts rules:
-- Custom made parts: "kind": "custom", "process" one of ["fdm","resin_sla","sls_mjf","cnc_3axis","sheet_metal","injection_molding"], "material" (PLA, PETG, resin, AL6061, steel...), realistic "bboxMm" in millimetres, "qty".
+- Custom made parts: "kind": "custom", "process" one of ["fdm","resin_sla","sls_mjf","cnc_3axis","sheet_metal","injection_molding","injection_molding_multicavity"], "material" (PLA, PETG, resin, AL6061, steel...), realistic "bboxMm" in millimetres, "qty". Add "maxWallMm" when the wall varies, and "hasUndercut": true if the geometry cannot release from a mould — an honest flag is better than a gate failure nobody saw coming.
 - Bought parts (electronics, motors, fasteners): "kind": "catalog", "process": "pcb_assembly", "purchasePriceUsd" (realistic unit USD), "source": { "distributor": "lcsc" or "authorized", "mpn": a real part number, "inStock": true, "stockVerified": true, "alternates": 1 or more, "partType": one of ["mcu","regulator","analog_ic","passive","connector","led","motor","sensor","battery","mechanical","enclosure"] }.
 - EVERY part — custom AND catalog — must include "bboxMm": { "x", "y", "z" } with the part's physical package size in millimetres.
 - If electronics interconnect, include ONE custom "pcb_assembly" board part (e.g. a JLCPCB-assembled PCB) rather than loose hand-wired modules.

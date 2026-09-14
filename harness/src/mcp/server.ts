@@ -15,7 +15,8 @@ import { landedCost } from '../engine/cost.ts';
 import { recommendProcess } from '../engine/process-select.ts';
 import { renderReport } from '../engine/report.ts';
 import { FAILURE_TAXONOMY } from '../knowledge/taxonomy.ts';
-import { PROCESSES } from '../knowledge/processes.ts';
+import { PROCESSES, STEEL_SHOT_LIFE } from '../knowledge/processes.ts';
+import type { ProcessId } from '../knowledge/processes.ts';
 import { MATERIALS, RULES } from '../knowledge/dfm.ts';
 import { CERTIFICATIONS, SOURCING_RULES, SOURCING_CHANNELS } from '../knowledge/compliance.ts';
 import { TARIFF_2026, LABOR_AND_QC, HIDDEN_COSTS } from '../knowledge/economics.ts';
@@ -49,20 +50,75 @@ const specSchema = {
   additionalProperties: true,
 };
 
-function asSpec(args: Record<string, unknown>): ProductSpec {
-  const spec = args.spec as ProductSpec | undefined;
-  if (!spec) throw new Error('Missing "spec" argument.');
-  if (!Array.isArray(spec.parts) || !Array.isArray(spec.features)) {
-    throw new Error('Spec must include "parts" and "features" arrays.');
+const VALID_ORIGINS = ['china', 'domestic', 'other'];
+const VALID_WIRELESS = ['none', 'bluetooth', 'wifi', 'lte', 'custom'];
+const VALID_BATTERY = ['none', 'lithium', 'alkaline'];
+
+/**
+ * Validate and default a caller-supplied spec.
+ *
+ * This is the "bring your own agent" boundary, so a malformed spec must produce a
+ * readable error naming the field - not a TypeError from three calls deep in the
+ * cost engine. Every field the engine dereferences is checked here.
+ */
+export function asSpec(args: Record<string, unknown>): ProductSpec {
+  if (args.spec === undefined && args.parts === undefined) {
+    throw new Error('Missing "spec" argument: pass a ProductSpec object under the "spec" key.');
   }
-  // Fill in defaults so a partially-specified design still evaluates.
+  const raw = args.spec ?? args;
+  if (!raw || typeof raw !== 'object') throw new Error('Missing "spec" argument: pass a ProductSpec object.');
+  const spec = raw as Partial<ProductSpec>;
+
+  if (!Array.isArray(spec.parts)) throw new Error('Spec: "parts" must be an array.');
+  if (!Array.isArray(spec.features)) throw new Error('Spec: "features" must be an array.');
+  // The power block is never defaulted. Assuming "no mains inside, no lithium" would
+  // hand a passing safety gate to a design that simply never stated its power source.
+  if (spec.power === undefined || typeof spec.power !== 'object') {
+    throw new Error(
+      'Spec.power is required: the safety gate cannot be assumed. Provide at least { mainsInside, wireless, battery }.',
+    );
+  }
+  const power = spec.power;
+  if (power.mainsInside === undefined) {
+    throw new Error('Spec.power: "mainsInside" is required - it drives the safety gate and the UL/ETL trigger.');
+  }
+  if (!VALID_WIRELESS.includes(power.wireless)) {
+    throw new Error(`Spec.power.wireless must be one of ${VALID_WIRELESS.join(' | ')}, got "${power.wireless}".`);
+  }
+  if (!VALID_BATTERY.includes(power.battery)) {
+    throw new Error(`Spec.power.battery must be one of ${VALID_BATTERY.join(' | ')}, got "${power.battery}".`);
+  }
+
+  const quantities = Array.isArray(spec.targetQuantities) ? spec.targetQuantities.filter((q) => typeof q === 'number' && q > 0) : [];
+  const origin = spec.origin && VALID_ORIGINS.includes(spec.origin) ? spec.origin : 'china';
+
+  for (const [index, part] of spec.parts.entries()) {
+    if (!part || typeof part !== 'object') throw new Error(`Spec.parts[${index}] must be an object.`);
+    if (typeof part.id !== 'string' || !part.id) throw new Error(`Spec.parts[${index}].id is required.`);
+    if (typeof part.process !== 'string' || !PROCESSES[part.process as ProcessId]) {
+      throw new Error(
+        `Spec.parts[${index}] (${part.id}): unknown process "${String(part.process)}". Valid: ${Object.keys(PROCESSES).join(', ')}.`,
+      );
+    }
+    if (part.bboxMm === undefined) {
+      throw new Error(`Spec.parts[${index}] (${part.id}): "bboxMm" is required - the cost proxy measures the part.`);
+    }
+  }
+
+  // Fill in what can safely be defaulted so a partially-specified design still evaluates.
   return {
     ...spec,
-    targetQuantities: spec.targetQuantities?.length ? spec.targetQuantities : [1, 100, 1000],
-    origin: spec.origin ?? 'china',
-    operations: spec.operations ?? [],
-    interfaces: spec.interfaces ?? [],
-  };
+    id: typeof spec.id === 'string' && spec.id ? spec.id : 'unnamed-design',
+    name: typeof spec.name === 'string' && spec.name ? spec.name : 'Unnamed design',
+    intent: typeof spec.intent === 'string' ? spec.intent : '',
+    power,
+    parts: spec.parts,
+    features: spec.features,
+    targetQuantities: quantities.length ? quantities : [1, 100, 1000],
+    origin,
+    operations: Array.isArray(spec.operations) ? spec.operations : [],
+    interfaces: Array.isArray(spec.interfaces) ? spec.interfaces : [],
+  } as ProductSpec;
 }
 
 const TOOLS: ToolDef[] = [
@@ -148,9 +204,9 @@ const TOOLS: ToolDef[] = [
   {
     name: 'hardware_process_data',
     description:
-      'Raw process capability and cost data: minimum wall, draft, tolerance, overhang, tooling cost, lead time and MOQ for FDM, SLA, SLS/MJF, CNC, sheet metal, soft tool and injection moulding.',
+      'Raw process capability and cost data: minimum wall, draft, tolerance, overhang, tooling cost, lead time and MOQ for FDM, SLA, SLS/MJF, CNC, sheet metal, soft tool and injection moulding, plus material densities and mould steel shot life.',
     inputSchema: { type: 'object', properties: {} },
-    handler: () => ({ processes: PROCESSES, materials: MATERIALS, steelShotLife: undefined }),
+    handler: () => ({ processes: PROCESSES, materials: MATERIALS, steelShotLife: STEEL_SHOT_LIFE }),
   },
   {
     name: 'hardware_rules',
@@ -165,11 +221,20 @@ const TOOLS: ToolDef[] = [
       'Get a reference fixture to design against - the cube lamp acceptance criteria and its feature-intent list, or a reconstructed design from the first public benchmark run.',
     inputSchema: {
       type: 'object',
-      properties: { id: { type: 'string', description: 'lamp-astra | lamp-fable | dj-controller, or omit for the lamp criteria' } },
+      properties: {
+        id: {
+          type: 'string',
+          description: `${FIXTURES.map((f) => f.id).join(' | ')}, or omit for the lamp criteria`,
+        },
+      },
     },
     handler: (args) => {
       if (!args.id) {
-        return { acceptanceCriteria: LAMP_ACCEPTANCE_CRITERIA, features: LAMP_REFERENCE_FEATURES };
+        return {
+          acceptanceCriteria: LAMP_ACCEPTANCE_CRITERIA,
+          features: LAMP_REFERENCE_FEATURES,
+          note: 'Criteria under "manufacturing", "electrical" and "assembly" are enforced by the gates and rules as noted. Optical, thermal, drop and pull-off criteria are measured in a physical build - they cannot be checked from a spec.',
+        };
       }
       const found = FIXTURES.find((f) => f.id === args.id);
       if (!found) throw new Error(`Unknown fixture '${args.id}'. Options: ${FIXTURES.map((f) => f.id).join(', ')}`);
@@ -262,13 +327,27 @@ const TOOLS: ToolDef[] = [
         targetRetailUsd: 'number',
         targetQuantities: ['number - e.g. 1, 100, 1000'],
         origin: "'china' | 'domestic' | 'other'",
+        markets: "('us' | 'eu' | 'uk' | 'ca')[] - where it will be SOLD; this, not the sourcing country, drives CE/GPSR/EU battery",
+        audience: "'adult' | 'general' | 'children' - a children's product triggers CPSIA testing",
         power: {
-          mainsInside: 'boolean - must be false (keep mains outside via a certified adapter)',
-          wireless: "'none' | 'bluetooth' | 'wifi' | 'lte' | 'custom'",
-          battery: "'none' | 'lithium' | 'alkaline'",
+          mainsInside: 'boolean - required; must be false (keep mains outside via a certified adapter)',
+          wireless: "'none' | 'bluetooth' | 'wifi' | 'lte' | 'custom' - required",
+          battery: "'none' | 'lithium' | 'alkaline' - required",
           usbPowered: 'boolean',
           externalAdapterCertified: 'boolean',
+          includesAdapter: 'boolean - a mains adapter in the box needs its own listing',
+          radioModulePrecertified: 'boolean - a certified module used as-is takes the streamlined FCC filing',
           maxWatts: 'number',
+        },
+        firmware: {
+          provided: 'boolean - false means the design ships no firmware at all',
+          language: 'string',
+          toolchain: 'string',
+          builds: 'boolean - has it ever compiled',
+          testedOnHardware: 'boolean - has it run on a real board',
+          pinMapMatchesFootprints: 'boolean - the most common dead-on-arrival cause',
+          dependenciesPinned: 'boolean',
+          linesApprox: 'number',
         },
         features: [
           {
@@ -290,9 +369,13 @@ const TOOLS: ToolDef[] = [
             qty: 'number',
             bboxMm: '{ x: number, y: number, z: number }',
             solidFraction: 'number 0-1 (default 0.25) - drives the cost proxy',
-            wallMm: 'number',
-            draftDeg: 'number',
+            wallMm: 'number - thinnest wall',
+            maxWallMm: 'number - thickest wall; a 2x spread pulls sink marks when moulded',
+            draftDeg: 'number - moulded parts only',
             toleranceMm: 'number',
+            hasUndercut: 'boolean - moulding only; implies a slider or lifter in the tool',
+            screwEngagementMm: 'number - thread depth in a plastic boss',
+            maxOverhangDeg: 'number - FDM only',
             visibleFaces: 'Face[]',
             source: { distributor: "'lcsc'|'authorized'|'broker'|'unknown'", mpn: 'string', inStock: 'boolean', stockVerified: 'boolean', alternates: 'number', partType: "'mcu'|'regulator'|'analog_ic'|'passive'|'connector'|'led'|'motor'|'sensor'|'mechanical'|'enclosure'" },
           },

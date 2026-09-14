@@ -21,6 +21,26 @@ The chat is the demo. The spec engine is the company.
 
 ## 2. Direct competitors — already shipping, some free
 
+**Schematik** (the one with a user base — added after the first pass; see `PROCESS.md` §3)
+- "Cursor for Hardware": an AI hardware IDE for Arduino, ESP32 and Raspberry Pi Pico. Prompt → firmware
+  source + colour-coded wiring diagram + BOM table + pin assignments + numbered assembly steps, plus a
+  per-project net table. One-click flash via PlatformIO, or export everything.
+- **$4.6M pre-seed led by Lightspeed** (Apr 2026), with Puzzle Ventures and angels from Hugging Face,
+  Google DeepMind and Monumental. Founder Samuel Beek previously scaled VEED past $50M ARR.
+- **100k+ users**, 10M+ Instagram reach, WIRED: *"They Built the 'Cursor for Hardware.' Now, Anthropic
+  Wants In."*
+- **6,021 parts in 68 groups** with availability, pinout, voltage, protocol, ecosystem fit and
+  cross-part warnings. Public build guides, hearts, one-click remix, and **Build Season 2026** with
+  M5Stack — publish a working build with photo/video and win hardware.
+- **Why it matters:** it is the strongest possible confirmation that generation is a commodity — and
+  the strongest possible evidence that the *receipt* is not being sold. Its BOM tables carry quantities
+  and no prices. A part page lists one retailer offer (HC-SR04 → Kiwi Electronics €6.28) with no duty,
+  no MOQ, no quantity breaks and no total. Its catalogue sells LiPo packs, mains supplies and 5G modems
+  with no compliance analysis. Its contest asks for a photo of the device working — not for what it
+  cost, how long it took, or what arrived wrong.
+- **Its boundary is the boundary of this repo's wedge:** Arduino/ESP32/Pico modules only, no
+  manufacturability, no certification, no landed cost, no measured build.
+
 **RapidDirect AI Creator** (Shenzhen-based manufacturer, the most dangerous one)
 - Text → 4 photoreal renders → AI-PRD generator → 3D model generator → **DFM analysis** (wall
   thickness, draft angles, interferences) → process/material match (CNC vs 3D print vs molding, with

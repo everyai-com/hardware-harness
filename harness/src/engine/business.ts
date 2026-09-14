@@ -7,8 +7,10 @@
  */
 
 import { landedCost } from './cost.ts';
+import type { UnitCost } from './cost.ts';
 import { estimateAssemblyMinutes } from './dfm-check.ts';
 import type { ProductSpec } from './types.ts';
+import { round, usd } from './util.ts';
 
 export interface ModelInputs {
   id: string;
@@ -59,10 +61,35 @@ export interface ModelOutcome {
   blocker?: string;
 }
 
+/** The margin a hardware model has to clear, and the per-hour floor that beats contract work. */
+export const TARGET_GROSS_MARGIN_PCT = 40;
+export const VIABLE_PROFIT_PER_HOUR_USD = 40;
+/** Prices are quoted to the nearest $5 - a $137.40 price is a spreadsheet, not a decision. */
+const PRICE_ROUNDING_USD = 5;
+
+/**
+ * Costed quantity nearest to the one asked for. The quantity does not have to be one
+ * of the spec's own target quantities - a caller asking for 250 on a spec priced at
+ * 1/100/1000 must get a real figure back, not a crash and not zero.
+ */
+export function costEntry(spec: ProductSpec, qty: number): UnitCost {
+  const report = landedCost(spec);
+  const quantities = report.quantities.length ? report.quantities : [];
+  const nearest = quantities.reduce(
+    (best, q) => (Math.abs(q.quantity - qty) < Math.abs(best.quantity - qty) ? q : best),
+    quantities[0],
+  );
+  return nearest;
+}
+
+export function costAt(spec: ProductSpec, qty: number): number {
+  return costEntry(spec, qty).unitUsd;
+}
+
 export function evaluateModel(inputs: ModelInputs): ModelOutcome {
   const spec = inputs.spec;
   const qty = inputs.costAtQuantity ?? (spec ? spec.targetQuantities[0] : 1);
-  const cost = inputs.unitCostOverrideUsd ?? (spec ? landedCost(spec).quantities.find((q) => q.quantity === qty)!.unitUsd : 0);
+  const cost = inputs.unitCostOverrideUsd ?? (spec ? costAt(spec, qty) : 0);
   const labourMinutes = inputs.labourMinutesOverride ?? (spec ? estimateAssemblyMinutes(spec) : 0);
 
   const grossProfitPerUnit = round(inputs.unitPriceUsd - cost);
@@ -73,16 +100,19 @@ export function evaluateModel(inputs: ModelInputs): ModelOutcome {
   const variableHours = (labourMinutes * inputs.monthlyVolume) / 60;
   // 1-decimal rounding: hours to one place reads better in the table than 2.
   const labourHours = Math.round((variableHours + (inputs.fixedMonthlyLabourHours ?? 0)) * 10) / 10;
-  const profitPerHour = labourHours > 0 ? round((grossProfitPerUnit * inputs.monthlyVolume) / labourHours) : 0;
+  // Same base as the monthly column above: fixed monthly cost is already sunk, and
+  // quoting a per-hour figure on a different base than the profit next to it made
+  // every model read slightly better than its own table.
+  const profitPerHour = labourHours > 0 ? round(monthlyGrossProfit / labourHours) : 0;
 
   let verdict: ModelOutcome['verdict'] = 'unviable';
   let blocker: string | undefined;
   if (grossMarginPct < 15) {
     verdict = 'unviable';
     blocker = `Gross margin ${grossMarginPct}% at ${usd(inputs.unitPriceUsd)}. Below 15% there is nothing left to run the business on.`;
-  } else if (profitPerHour < 40) {
+  } else if (profitPerHour < VIABLE_PROFIT_PER_HOUR_USD) {
     verdict = 'marginal';
-    blocker = `Only ${usd(profitPerHour)} of gross profit per hour of your own labour. Below ~$40/hr this does not beat contract work.`;
+    blocker = `Only ${usd(profitPerHour)} of gross profit per hour of your own labour. Below ~$${VIABLE_PROFIT_PER_HOUR_USD}/hr this does not beat contract work.`;
   } else if (monthlyGrossProfit <= 0) {
     verdict = 'marginal';
     blocker = `Monthly gross profit is negative at ${inputs.monthlyVolume} units/month after fixed costs.`;
@@ -115,11 +145,19 @@ export function evaluateModel(inputs: ModelInputs): ModelOutcome {
 
 function requirementFor(inputs: ModelInputs, margin: number, perHour: number): string {
   const needs: string[] = [];
-  if (margin < 40) needs.push(`price above ${usd(Math.ceil(inputs.unitPriceUsd * (0.4 / Math.max(margin, 1)) / 5) * 5)} for a 40% margin`);
-  if (perHour < 40 && inputs.monthlyVolume > 0) {
-    const target = 40;
-    const current = perHour;
-    if (current > 0) needs.push(`about ${Math.ceil((target / current) * inputs.monthlyVolume)} units/month, or design the labour out`);
+  if (margin < TARGET_GROSS_MARGIN_PCT) {
+    // margin = (price - cost) / price, so cost = price * (1 - margin) and the price
+    // that clears the target is cost / (1 - target).
+    const unitCost = inputs.unitPriceUsd * (1 - margin / 100);
+    const requiredPrice = unitCost / (1 - TARGET_GROSS_MARGIN_PCT / 100);
+    const rounded = Math.ceil(requiredPrice / PRICE_ROUNDING_USD) * PRICE_ROUNDING_USD;
+    needs.push(`price at ${usd(rounded)} to clear ${TARGET_GROSS_MARGIN_PCT}% margin`);
+  }
+  if (perHour < VIABLE_PROFIT_PER_HOUR_USD && inputs.monthlyVolume > 0 && perHour > 0) {
+    const neededVolume = Math.ceil(
+      (VIABLE_PROFIT_PER_HOUR_USD / perHour) * inputs.monthlyVolume,
+    );
+    needs.push(`about ${neededVolume} units/month, or design the labour out`);
   }
   if (needs.length === 0) return 'Holds as specified. The constraint now is demand, not arithmetic.';
   return needs.join('; ');
@@ -130,9 +168,9 @@ function requirementFor(inputs: ModelInputs, margin: number, perHour: number): s
  * Every number traces to a fixture or to a stated price.
  */
 export function compareModels(specs: { lamp: ProductSpec; voiceNote: ProductSpec; voiceNoteFixed: ProductSpec }): ModelOutcome[] {
-  const lampCost = landedCost(specs.lamp).quantities.find((q) => q.quantity === 1)!.personalBuildUsd;
-  const voiceCost = landedCost(specs.voiceNote).quantities.find((q) => q.quantity === 100)!.unitUsd;
-  const voiceFixedCost = landedCost(specs.voiceNoteFixed).quantities.find((q) => q.quantity === 1000)!.unitUsd;
+  const lampCost = costEntry(specs.lamp, 1).personalBuildUsd;
+  const voiceCost = costEntry(specs.voiceNote, 100).unitUsd;
+  const voiceFixedCost = costEntry(specs.voiceNoteFixed, 1000).unitUsd;
 
   return [
     evaluateModel({
@@ -141,7 +179,17 @@ export function compareModels(specs: { lamp: ProductSpec; voiceNote: ProductSpec
       description: 'The generated voice note-taker, sold at its target retail price.',
       unitPriceUsd: 79,
       unitCostOverrideUsd: voiceCost,
-      labourMinutesOverride: 262,
+      labourMinutesOverride: estimateAssemblyMinutes(specs.voiceNote),
+      monthlyVolume: 50,
+      fixedMonthlyCostUsd: 200,
+    }),
+    evaluateModel({
+      id: 'rebuilt-electronics',
+      label: 'The same product rebuilt around one assembled board',
+      description: 'Identical function, one PCBA instead of 18 hand-soldered wires. The labour is the difference, and it is the whole difference.',
+      unitPriceUsd: 79,
+      unitCostOverrideUsd: voiceFixedCost,
+      labourMinutesOverride: estimateAssemblyMinutes(specs.voiceNoteFixed),
       monthlyVolume: 50,
       fixedMonthlyCostUsd: 200,
     }),
@@ -157,7 +205,7 @@ export function compareModels(specs: { lamp: ProductSpec; voiceNote: ProductSpec
     }),
     evaluateModel({
       id: 'verified-builds',
-      label: 'Verified builds for other people\'s designs',
+      label: "Verified builds for other people's designs",
       description: 'A design arrives, you score it, build it, time it and publish the receipt.',
       unitPriceUsd: 300,
       unitCostOverrideUsd: 60, // parts + freight for a typical small object
@@ -188,12 +236,4 @@ export function compareModels(specs: { lamp: ProductSpec; voiceNote: ProductSpec
       fixedMonthlyLabourHours: 40,
     }),
   ];
-}
-
-function round(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-function usd(n: number): string {
-  return `$${Math.round(n).toLocaleString('en-US')}`;
 }

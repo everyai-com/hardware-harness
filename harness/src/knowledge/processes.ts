@@ -259,6 +259,31 @@ export const PROCESSES: Record<ProcessId, Process> = {
   },
 };
 
+/**
+ * Which processes can actually make a part in a given material.
+ *
+ * Without this the cost model quotes a lamp base as sheet metal and an SLS nylon
+ * bracket as a printed circuit board, because every process is compared against
+ * every part. A process outside this set is not a cheaper option - it is not an option.
+ */
+export const MATERIAL_PROCESS_FIT: Record<string, ProcessId[]> = {
+  pla: ['fdm', 'cnc_3axis'],
+  petg: ['fdm', 'cnc_3axis'],
+  tpu: ['fdm'],
+  pa12: ['sls_mjf', 'cnc_3axis'],
+  abs: ['fdm', 'injection_molding', 'injection_molding_multicavity', 'soft_tool', 'cnc_3axis'],
+  pp: ['injection_molding', 'injection_molding_multicavity', 'soft_tool', 'cnc_3axis'],
+  pc: ['injection_molding', 'injection_molding_multicavity', 'soft_tool', 'cnc_3axis'],
+  pmma: ['resin_sla', 'injection_molding', 'injection_molding_multicavity', 'soft_tool', 'cnc_3axis'],
+  resin_std: ['resin_sla'],
+  silicone: ['soft_tool', 'injection_molding'],
+  alu6061: ['cnc_3axis', 'sheet_metal'],
+  fr4: ['pcb_assembly'],
+};
+
+/** Processes that only make sense for a bare board, matched by name when material is unset. */
+export const BOARD_PROCESS: ProcessId = 'pcb_assembly';
+
 export const STEEL_SHOT_LIFE: Array<{ steel: string; shots: [number, number]; bestFor: string }> = [
   { steel: 'Aluminium (7075 / QC-10)', shots: [5000, 30000], bestFor: 'Prototypes, market tests' },
   { steel: 'P20 pre-hardened', shots: [100000, 300000], bestFor: 'General-purpose ABS/PP parts' },

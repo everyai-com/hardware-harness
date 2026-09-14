@@ -1,8 +1,17 @@
 import Link from "next/link";
-import { listDesigns, type Sort } from "@/lib/db/queries";
+import type { Metadata } from "next";
+import { pageDesigns, parseSort, buildCountsFor, PAGE_SIZE } from "@/lib/db/queries";
+import type { Sort } from "@/lib/db/queries";
 import { DesignCard } from "@/components/design-card";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Explore — every design, honestly scored",
+  description:
+    "The public gallery: AI-generated hardware designs scored by the LuxoBench harness, including the ones that failed the build gates.",
+  alternates: { canonical: "/explore" },
+};
 
 const SORTS: { id: Sort; label: string }[] = [
   { id: "new", label: "Newest" },
@@ -10,10 +19,18 @@ const SORTS: { id: Sort; label: string }[] = [
   { id: "likes", label: "Most liked" },
 ];
 
-export default async function ExplorePage({ searchParams }: { searchParams: Promise<{ sort?: string }> }) {
-  const { sort } = await searchParams;
-  const active = (SORTS.find((s) => s.id === sort)?.id ?? "new") as Sort;
-  const designs = await listDesigns(active);
+export default async function ExplorePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; page?: string }>;
+}) {
+  const { sort, page } = await searchParams;
+  const active = parseSort(sort ?? null);
+  const current = Math.max(Number(page ?? "1") || 1, 1);
+  const result = await pageDesigns(active, current, PAGE_SIZE);
+  const receipts = await buildCountsFor(result.designs.map((d) => d.id));
+
+  const pageHref = (p: number) => `/explore?sort=${active}&page=${p}`;
 
   return (
     <div className="space-y-6">
@@ -26,22 +43,28 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
             fail the gates, and that is the point.
           </p>
         </div>
-        <div className="flex gap-2">
+        <nav aria-label="Sort designs" className="flex gap-2">
           {SORTS.map((s) => (
             <Link
               key={s.id}
               href={`/explore?sort=${s.id}`}
-              className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+              aria-current={active === s.id ? "page" : undefined}
+              className={`rounded-lg border px-3 py-1.5 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                 active === s.id ? "border-accent text-accent" : "border-line text-muted hover:text-foreground"
               }`}
             >
               {s.label}
             </Link>
           ))}
-        </div>
+        </nav>
       </header>
 
-      {designs.length === 0 ? (
+      <p className="font-mono text-xs text-muted">
+        {result.total} design{result.total === 1 ? "" : "s"} · page {result.page} of{" "}
+        {Math.max(Math.ceil(result.total / result.pageSize), 1)}
+      </p>
+
+      {result.designs.length === 0 ? (
         <p className="rounded-xl border border-line bg-card p-8 text-center text-muted">
           Nothing here yet —{" "}
           <Link href="/generate" className="text-accent hover:underline">
@@ -51,10 +74,35 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {designs.map((d) => (
-            <DesignCard key={d.id} design={d} />
+          {result.designs.map((d) => (
+            <DesignCard key={d.id} design={d} receipts={receipts.get(d.id) ?? 0} />
           ))}
         </div>
+      )}
+
+      {(result.page > 1 || result.hasMore) && (
+        <nav aria-label="Pagination" className="flex items-center justify-between">
+          {result.page > 1 ? (
+            <Link
+              href={pageHref(result.page - 1)}
+              rel="prev"
+              className="rounded-lg border border-line px-3 py-1.5 text-sm text-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              ← Newer
+            </Link>
+          ) : (
+            <span />
+          )}
+          {result.hasMore && (
+            <Link
+              href={pageHref(result.page + 1)}
+              rel="next"
+              className="rounded-lg border border-line px-3 py-1.5 text-sm text-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              Older →
+            </Link>
+          )}
+        </nav>
       )}
     </div>
   );

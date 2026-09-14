@@ -107,6 +107,7 @@ they measure different things. **Pick your benchmark and you pick your winner.**
 | Layer | Occupants | Status |
 |---|---|---|
 | Concept → BOM + CAD + instructions | **Blueprint** (blueprint.io, by 3E8 Robotics, marketed as "Claude for Hardware" — free tier, wiring diagrams + BOM + assembly guides + 3D CAD in minutes), **RapidDirect AI Creator** (free, factory-backed), MORPHIC, Nirmana AI, Zoo, Leo AI ($9.7M), Backflip | **Crowded, mostly free, commoditizing fast** |
+| Maker electronics end to end | **Schematik** (schematik.io — "Cursor for Hardware", **$4.6M pre-seed led by Lightspeed**, WIRED-covered, Anthropic circling, 100k+ users, **6,021-part catalogue**, build guides with firmware + wiring + net tables, one-click PlatformIO flashing, desktop app, M5Stack partnership). Arduino / ESP32 / Pico only | **Funded, consumer-scale, and the strongest evidence yet that generation is a commodity. See below** |
 | Code-CAD / EDA infrastructure | atopile (funded, open-core), Circuit Weaver (OSS), Copperplane (OSS), ForgeLab (OSS, design IR), KiCad/FreeCAD MCPs | **Open source, commoditizing** |
 | BOM → procurement execution | **Cofactr** — $17M total, **Series A led by Bain Capital Ventures** + YC + Floating Point; ITAR-registered, physical ESD-safe warehouses, 500+ suppliers, "upload your BOM, AI sources and negotiates, we kit and ship." **15 employees, <$5M revenue**. Also Alibaba's Accio (100M+ products) and Made-in-China's SourcingAI | **Funded, but narrow: defense/aero/ITAR, B2B** |
 | Design → on-demand production for brands | **Artilora** — "world's first product design & procurement AI agent… from design, visuals and 3D to **on-demand production**," aimed at jewelry, designer toys, consumer goods, with "a path to RFQ-ready specs" | **Closest direct competitor to your idea. Early** |
@@ -115,7 +116,60 @@ they measure different things. **Pick your benchmark and you pick your winner.**
 | Middleware / fulfillment | Xometry ($807M TTM), Protolabs Network, Fictiv ($192M raised), Craftcloud (180+ partners), Treatstock | **Established, owns the factories** |
 | Physical equipment control | **Anthropic Model Hardware Standard** (research preview, Aug 2026) — shared spec letting agents operate microscopes, liquid handlers, robotic arms, manufacturing equipment via MCP/CLI/code, model-agnostic, plans to open-source. Genentech, HHMI Janelia, QuEra already running it | **The rails for machine-verified builds** |
 
-### The one you need to know about: Atech
+### The one you need to know about now: Schematik
+
+*This section is an update written after the fact. Schematik appears once in the scraped thread
+(@markfenner, 11 Sep: "This is what @schematikio was made for!") and in none of the earlier analysis
+in this repo. That was a gap; this closes it.*
+
+Atech was the finding in September. **Schematik is the finding now**, and it is materially bigger:
+
+| | |
+|---|---|
+| **What it is** | "Cursor for Hardware" — an AI hardware IDE for Arduino, ESP32 and Pico |
+| **Funding** | **$4.6M pre-seed, led by Lightspeed**, with Puzzle Ventures and angels from Hugging Face, Google DeepMind and Monumental (Apr 2026) |
+| **Traction** | **100k+ users**, 10M+ watching on Instagram, WIRED: *"They Built the 'Cursor for Hardware.' Now, Anthropic Wants In"* |
+| **Founder** | Samuel Beek, who previously scaled VEED past $50M ARR |
+| **Output** | Firmware source, colour-coded wiring diagram, BOM table with quantities, pin assignments, numbered assembly steps, a per-project **connection/net table**, and project media |
+| **Reach** | Browser + desktop, one-click flash through PlatformIO, export everything |
+| **Catalogue** | **6,021 parts in 68 groups** with availability, pinout, voltage, protocol, ecosystem fit, and cross-part warnings (*"Echo output is 5V logic; level-shift before pairing with a 3.3V MCU"*) |
+| **Community** | Public build guides, hearts, one-click remix, and **Build Season 2026** with M5Stack — publish a working build with photo/video, win hardware |
+
+**The origin story is the thesis of this repo.** Beek built an electric door opener from ChatGPT's
+wiring instructions, connected wet and dry contacts, and blew every fuse in his house. Schematik exists
+because a model wrote plausible wiring. That is `LUXOBENCH.md` §4's safety gate, as a company.
+
+**What it proves in favour of this repo's plan:** generation and simple wiring are commodities, now with
+a funded, consumer-scale leader. The crowd is already pointing at it inside the original thread. Any
+plan that starts with "generate the design" is competing with a Lightspeed-backed team that has 100k
+users and a part catalogue.
+
+**What it does not do — and this is the whole wedge, verified against the market leader:**
+
+| Gap at Schematik | Evidence |
+|---|---|
+| **No landed cost** | Their BOM tables carry **quantities and no prices**. A part page shows a single retailer offer (HC-SR04 → *Kiwi Electronics €6.28*) — one EU reseller, EUR, no quantity breaks, no duty, no MOQ, no tooling, no assembly labour, no certification, no total. The part this repo's whole thesis says nobody publishes is *still* unpublished by the best-funded player in the category |
+| **No manufacturability** | COTS modules and dev boards only. No wall thickness, draft, tooling, process selection or moulding — the DFM half does not apply to a breadboard |
+| **No compliance** | The catalogue sells LiPo packs, 18650 holders, mains PSUs, solar and 5G modems with no CE/RED/UN38.3/FCC analysis anywhere |
+| **No measured build data** | Build Season asks for a photo or video of the thing working. It does not ask what it cost, how long it took, what arrived wrong, or what failed — the receipt, again, at 233 hearts |
+| **No firmware verification** | It generates and flashes firmware; nothing in a published project claims the code was compiled or tested against that board |
+
+**The read:** Schematik owns *prompt → makers' electronics → flash it*. This repo's thesis owns
+*does it cost what it claims, can it be manufactured, is it legal to sell, and did anyone actually build
+it*. Those are different products, and the second one is still unoccupied — but the first one now has a
+part catalogue, a community proof loop and a distribution deal, which is a warning about what "table
+stakes" means for a hardware hub.
+
+**Two things worth copying outright:**
+
+1. **A part catalogue with consequences.** 6,021 parts carrying ecosystem fit, protocol, voltage and
+   cross-part warnings is real work that makes generated designs better and generated BOMs *checkable*.
+   This repo's harness has no part data at all: `G1` only validates what the caller declared.
+2. **Proof with a prize attached.** Build Season is a growth loop that produces physical evidence.
+   This repo has an outcomes API, no interface, and no incentive — the compounding dataset described in
+   `PLAN.md` has no way in.
+
+### The previous finding: Atech
 
 Found through the reply CSV, not through search — **nim himself was pointed at @Atech_dev and replied "oh
 this is exactly what I need!"** Atech is a Danish startup that raised **$800K pre-seed in May 2026, led
@@ -161,6 +215,13 @@ at the artifact — a schematic, a BOM, a render, an animation, at most a shipme
 "can AI design hardware" — that shipped in September 2026 and it's free. **The gap is the
 acceptance test and the liability.**
 
+**Updated against Schematik (see §3):** the strongest funded player in the category now ships firmware,
+wiring, a pin table and a net table, and runs a contest for published working builds — and its BOM
+tables still carry **no prices**, its catalogue carries **no compliance analysis**, and its published
+builds carry **no cost, no minutes, no failure list**. The acceptance test is still missing. What has
+changed is that the *evidence* layer now has a distribution engine behind it, so the version of this
+that wins is the one that attaches **numbers** to those builds rather than photos alone.
+
 That's not an accident. It's missing for exactly the reasons in `OPERATIONS.md`: per-unit labor, QC on
 every order, working capital, merchant-of-record risk. Which means **the gap is an ops gap disguised
 as a software gap** — and that's precisely why it's still open three weeks after the demos went viral.
@@ -204,6 +265,10 @@ one is free, and the second needs 1,174 employees and 13 years.
 - **Timing:** Astra launched **Sep 3**, EEBench published **Sep 4**, the DJ controller went viral
   **Sep 10**, Blueprint's "Claude for Hardware" push was **Sep 10–13**. This category is roughly two
   weeks old. Being early is an advantage — and the reason it's movable is that it's this new.
+  **One correction to the timeline:** it is not a two-week-old category with only hobby tools in it.
+  Schematik raised $4.6M from Lightspeed in **April 2026** and has 100k+ users building real
+  microcontroller projects, a 6,021-part catalogue, and a contest running right now. The *viral demo*
+  is two weeks old; the *market* is not.
 - **The survivorship warning:** one 2026 analysis claims **3,800 AI agent startups shut down in 2025
   and another 1,800 in early 2026, with over 70% of horizontal agents never converting from demo to
   production.** Treat those numbers as directional (single source, marketing-adjacent), but the shape
@@ -218,6 +283,7 @@ one is free, and the second needs 1,174 employees and 13 years.
 
 ## Sources
 
+- **Schematik (the funded incumbent in maker electronics):** [site](https://www.schematik.io/) · [official AI-info page](https://www.schematik.io/ai-info) · [parts catalogue — 6,021 parts](https://www.schematik.io/parts) · [a part page with a single retailer offer](https://www.schematik.io/parts/hc-sr04) · [a published community build with its BOM, net table and firmware](https://www.schematik.io/projects/rovie-esp32-line-following-rover-nbn5) · [Build Season 2026 with M5Stack](https://www.schematik.io/build-season-2026) · [WIRED — "They Built the 'Cursor for Hardware.' Now, Anthropic Wants In"](https://www.wired.com/story/schematik-is-cursor-for-hardware-anthropic-wants-in-on-it/) · [$4.6M pre-seed led by Lightspeed (with Puzzle Ventures; angels from Hugging Face, Google DeepMind, Monumental)](https://techforward.io/schematik-raises-4-6m-pre-seed-to-turn-plain-english-into-working-hardware/) · [the "real value is speed to first review, not autonomous engineering" analysis](https://nodedrift.com/blog/schematik-brings-cursor-style-ai-to-hardware-design)
 - [Christian Keil is an a16z Investing Partner (American Dynamism), ex-Astranis](https://www.pronouncedkyle.com/) · [a16z profile summary](https://yespress.io/christian-keil) · [Keil's X profile](https://x.com/pronounced_kyle) · [Keil on hardware design as a process, graded on manufacturability](https://x.com/pronounced_kyle/status/2096641789516193954)
 - [CursorBench — real Cursor sessions, not public repos](https://cursor.com/blog/cursorbench) · [CursorBench leaderboard](https://cursor.com/cursorbench) · [Why Cursor built its own benchmark](https://agent-wars.com/news/2026-03-13-how-cursor-compares-model-quality-with-cursorbench)
 - [atopile — design circuit boards with code](https://atopile.io/) · [atopile GitHub](https://github.com/atopile/atopile) · [atopile funding profile](https://pitchbook.com/profiles/company/553973-68)

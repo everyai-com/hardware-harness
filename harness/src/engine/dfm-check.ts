@@ -10,8 +10,9 @@ import type { RuleId, Severity } from '../knowledge/dfm.ts';
 import { PROCESSES, SURFACE_QUALITY } from '../knowledge/processes.ts';
 import { SOURCING_RULES, CERTIFICATIONS } from '../knowledge/compliance.ts';
 import { failuresForRule } from '../knowledge/taxonomy.ts';
-import type { Part, ProductSpec } from './types.ts';
+import type { Part, PartType, ProductSpec } from './types.ts';
 import { partVolumeCm3, totalPartCount } from './types.ts';
+import { usdWhole } from './util.ts';
 
 export interface Finding {
   ruleId: RuleId;
@@ -29,6 +30,56 @@ const HIGH_RISK_PART_TYPES = new Set(['mcu', 'regulator', 'analog_ic', 'sensor']
 
 export const PART_COUNT_BUDGET = 15;
 export const ASSEMBLY_MINUTE_BUDGET = 20;
+
+/**
+ * One definition of "electronic", used by the board check, the net check, the
+ * firmware check and the FCC trigger alike. Three different lists previously
+ * disagreed about whether a motor or a battery made a device electronic.
+ *
+ * A battery is a power source and a motor is an actuator: neither is a circuit, so
+ * neither implies a board, firmware or an unintentional-radiator filing.
+ */
+const ELECTRONIC_PART_TYPES: PartType[] = ['mcu', 'regulator', 'analog_ic', 'passive', 'connector', 'led', 'sensor'];
+
+/** Only a programmable part can run software. */
+const PROGRAMMABLE_PART_TYPES: PartType[] = ['mcu'];
+
+/**
+ * Below this, an order minimum is normal trade (JLCPCB's 5 boards, a $5 print
+ * minimum) and rounding up is cheaper than the engineering time to avoid it.
+ * Above it, a minimum is a real commitment someone has to approve.
+ */
+export const MOQ_IGNORED_BELOW = 10;
+export const MOQ_BLOCK_ABOVE = 50;
+
+/** Minimum thread engagement in a plastic boss, mm (~1x an M3 thread). */
+export const MIN_SCREW_ENGAGEMENT_MM = 3;
+
+export function isElectronicPart(part: Part): boolean {
+  const t = part.source?.partType;
+  return t !== undefined && ELECTRONIC_PART_TYPES.includes(t);
+}
+
+export function isProgrammablePart(part: Part): boolean {
+  const t = part.source?.partType;
+  return t !== undefined && PROGRAMMABLE_PART_TYPES.includes(t);
+}
+
+export function electronicParts(spec: ProductSpec): Part[] {
+  return spec.parts.filter(isElectronicPart);
+}
+
+export function hasElectronics(spec: ProductSpec): boolean {
+  return spec.parts.some(isElectronicPart);
+}
+
+/**
+ * Does this design need firmware? Only if something in the BOM can execute it, or
+ * the design declares firmware. A lamp with an LED and a USB-C socket does not.
+ */
+export function requiresFirmware(spec: ProductSpec): boolean {
+  return spec.parts.some(isProgrammablePart) || spec.firmware !== undefined;
+}
 
 /**
  * Material minimum wall thickness is a moulding constraint - resin printing a
@@ -96,6 +147,42 @@ export function checkDFM(spec: ProductSpec): Finding[] {
           'Add draft, or move to a tool-less process (SLS/CNC) if the volume does not justify a tool.',
         );
       }
+    }
+
+    // Uniform wall is a moulding rule: thick sections cool slower than thin ones and
+    // pull sink marks into whatever face the customer looks at.
+    const moulded = proc.minDraftDeg > 0;
+    if (
+      !bought &&
+      moulded &&
+      part.wallMm !== undefined &&
+      part.maxWallMm !== undefined &&
+      part.maxWallMm > part.wallMm * 2
+    ) {
+      push(
+        'WALL_NOT_UNIFORM',
+        part.id,
+        `${part.label}: wall runs ${part.wallMm}-${part.maxWallMm}mm (${(part.maxWallMm / part.wallMm).toFixed(1)}x). Thick sections cool slower and pull sink marks into the cosmetic face.`,
+        'Hold a uniform nominal wall and core the thick section out from the hidden side.',
+      );
+    }
+
+    if (!bought && moulded && part.hasUndercut) {
+      push(
+        'UNDERCUT_PRESENT',
+        part.id,
+        `${part.label}: an undercut on a ${proc.label} tool needs a slider or lifter.`,
+        'Add the side action to the tool cost - it is not in a base mould quote - or redesign the feature so the part releases in the draw direction.',
+      );
+    }
+
+    if (!bought && part.screwEngagementMm !== undefined && part.screwEngagementMm < MIN_SCREW_ENGAGEMENT_MM) {
+      push(
+        'SCREW_ENGAGEMENT_LOW',
+        part.id,
+        `${part.label}: ${part.screwEngagementMm}mm of thread engagement (below ${MIN_SCREW_ENGAGEMENT_MM}mm). Threads strip on first assembly, and again on every service.`,
+        'Deepen the boss, or add a captive insert and price it in.',
+      );
     }
 
     if (!bought && part.supportsTouchVisibleFace && proc.supportsOnVisibleSurfaces) {
@@ -207,14 +294,28 @@ export function checkDFM(spec: ProductSpec): Finding[] {
     const contributors = iface.contributors
       .map((id) => spec.parts.find((p) => p.id === id))
       .filter((p): p is Part => Boolean(p));
-    const stack = contributors.reduce((sum, p) => sum + (p.toleranceMm ?? PROCESSES[p.process].toleranceMm / 2), 0);
-    // Worst case: every contributor deviates in the direction that closes the gap.
+    // Worst case: every contributor deviates in the direction that closes the gap, so
+    // each one contributes its full tolerance band. A declared +/-0.3mm and a process
+    // that holds +/-0.5mm both add their whole band, never half of it.
+    const stack = contributors.reduce(
+      (sum, p) => sum + (p.toleranceMm ?? PROCESSES[p.process]?.toleranceMm ?? 0),
+      0,
+    );
     if (stack > iface.clearanceMm) {
       push(
         'TOLERANCE_STACK',
         iface.id,
-        `${iface.id}: contributors stack to +/-${stack.toFixed(2)}mm against a ${iface.clearanceMm}mm clearance. Worst case is an interference fit.`,
+        `${iface.id}: ${contributors.length} contributors close ${stack.toFixed(2)}mm against a ${iface.clearanceMm}mm clearance. Worst case is an interference fit.`,
         'Increase clearance, tighten the tightest contributor, or add an adjustment feature (slot, shim, oversized hole).',
+      );
+    }
+    if (iface.between.some((id) => !spec.parts.some((p) => p.id === id))) {
+      push(
+        'TOLERANCE_STACK',
+        iface.id,
+        `${iface.id}: the interface names a part that is not in the bill of materials.`,
+        'Fix the interface or the BOM - an interface against a phantom part cannot be checked.',
+        'warn',
       );
     }
   }
@@ -239,6 +340,24 @@ export function checkDFM(spec: ProductSpec): Finding[] {
         'Design the part so the operation is unnecessary - file-to-fit and structural epoxy are design failures.',
       );
     }
+  }
+
+  // Order quantity against process minimums. This is the commitment an agent can
+  // make by accident, and it is invisible until the card is charged.
+  const productionQty = Math.max(...spec.targetQuantities, 0);
+  const madeWith = new Set(
+    spec.parts.filter((p) => p.purchasePriceUsd === undefined).map((p) => p.process),
+  );
+  for (const id of madeWith) {
+    const proc = PROCESSES[id];
+    if (!proc || proc.moq <= MOQ_IGNORED_BELOW || productionQty >= proc.moq) continue;
+    push(
+      'MOQ_MISMATCH',
+      'product',
+      `${proc.label} has a ${proc.moq}-unit minimum; the design's largest target quantity is ${productionQty}. The order cannot be placed as scoped, or it gets silently rounded up.`,
+      'Order at the minimum and hold the balance as stock, or stay on a tool-less process until the volume justifies the commitment.',
+      proc.moq >= MOQ_BLOCK_ABOVE ? 'block' : 'warn',
+    );
   }
 
   const assemblyMinutes = estimateAssemblyMinutes(spec);
@@ -284,8 +403,19 @@ export function checkDFM(spec: ProductSpec): Finding[] {
     push(
       'CERT_GAP',
       'product',
-      `Required but not budgeted: ${unbudgeted.join(', ')}${costs.length ? ` (published cost ${usd(low)}-${usd(high)})` : ''}.`,
+      `Required but not budgeted: ${unbudgeted.join(', ')}${costs.length ? ` (published cost ${usdWhole(low)}-${usdWhole(high)})` : ''}.`,
       'Budget it, or remove the trigger (external certified adapter for mains, pre-certified module for radio).',
+    );
+  }
+
+  // The invisible one-off: a USB audio/HID device needs an OS-signed driver, and the
+  // signing cost exceeds the bill of materials on small-batch audio hardware.
+  if (spec.requiresSignedDrivers) {
+    push(
+      'DRIVER_SIGNING_UNBUDGETED',
+      'product',
+      `Signed low-latency drivers run $${500}-$${1000} one-off - the largest single line on a small-batch audio device, and it appears in no generated BOM.`,
+      'Budget it as a one-off (the landed-cost engine carries it), or design a class-compliant device that needs no driver at all.',
     );
   }
 
@@ -320,18 +450,15 @@ export function checkDFM(spec: ProductSpec): Finding[] {
   }
 
   // Electronics need a board, and a described battery needs to exist in the BOM.
-  const electronicParts = spec.parts.filter((p) => {
-    const t = p.source?.partType;
-    return t !== undefined && ['mcu', 'regulator', 'analog_ic', 'sensor', 'led', 'connector', 'battery'].includes(t);
-  });
+  const electronics = electronicParts(spec);
   const hasBoard = spec.parts.some(
     (p) => p.kind === 'custom' && /pcb|board/i.test(`${p.id} ${p.label} ${(p.notes ?? []).join(' ')}`),
   );
-  if (electronicParts.length >= 3 && !hasBoard) {
+  if (electronics.length >= 3 && !hasBoard) {
     push(
       'ELECTRONICS_WITHOUT_PCB',
       'product',
-      `${electronicParts.length} electronic parts with interconnections described, but no board in the bill of materials.`,
+      `${electronics.length} electronic parts with interconnections described, but no board in the bill of materials.`,
       'Add the board: 2-layer at JLCPCB/PCBWay is ~$2-6 for 5 pieces with 2-day production, and they can place the parts. Route the module onto it instead of hand-wiring.',
     );
   }
@@ -347,13 +474,13 @@ export function checkDFM(spec: ProductSpec): Finding[] {
   // ---- electrical nets -------------------------------------------------------
   // Interfaces say what must FIT; only nets say what must CONNECT. Without them
   // the wiring cannot be checked - only guessed at.
-  if (electronicParts.length >= 2) {
+  if (electronics.length >= 2) {
     const nets = spec.nets ?? [];
     if (nets.length === 0) {
       push(
         'NO_NETS',
         'product',
-        `${electronicParts.length} electronic parts but no electrical nets declared. The wiring cannot be checked - only guessed at.`,
+        `${electronics.length} electronic parts but no electrical nets declared. The wiring cannot be checked - only guessed at.`,
         'Declare the nets: every connection from part pin to part pin, including the power and ground rails.',
         'warn',
       );
@@ -376,13 +503,15 @@ export function checkDFM(spec: ProductSpec): Finding[] {
   }
 
   // ---- firmware ------------------------------------------------------------
+  // Triggered by a programmable part, not by a part count: an LED and a USB socket
+  // do not need software, and pretending they do trains people to ignore the gate.
   const fw = spec.firmware;
-  if (electronicParts.length >= 2) {
+  if (requiresFirmware(spec)) {
     if (!fw || fw.provided === false) {
       push(
         'FIRMWARE_MISSING',
         'firmware',
-        `${electronicParts.length} electronic parts and no firmware shipped with the design.`,
+        `${electronics.length} electronic part(s), including something programmable, and no firmware shipped with the design.`,
         'Ship the firmware with the board. "Flash the firmware" is not an instruction if no firmware exists.',
       );
     } else {
@@ -441,8 +570,11 @@ export function requiredCertifications(spec: ProductSpec): string[] {
   const markets = spec.markets ?? ['us'];
 
   if (p.mainsInside) out.push('ul_etl_mains');
-  if (p.wireless === 'bluetooth' || p.wireless === 'wifi' || p.wireless === 'lte') out.push('fcc_radio');
-  else if (p.wireless === 'custom') out.push('fcc_licensed');
+  if (p.wireless === 'bluetooth' || p.wireless === 'wifi' || p.wireless === 'lte') {
+    // A radio module certified and used as-is takes the streamlined filing. Getting
+    // this wrong in either direction is a $3,000-$8,000 error.
+    out.push(p.radioModulePrecertified ? 'fcc_module' : 'fcc_radio');
+  } else if (p.wireless === 'custom') out.push('fcc_licensed');
   else if (hasElectronics(spec)) out.push('fcc_unintentional');
 
   // A shipped mains adapter needs its own listing. A product that simply charges over
@@ -451,33 +583,36 @@ export function requiredCertifications(spec: ProductSpec): string[] {
     out.push('ul_etl_mains');
   }
   if (p.battery === 'lithium') out.push('un383');
+  // EU Battery Regulation attaches to the cell in a product sold into the EU, which
+  // is a different trigger from the transport rules above.
+  if (p.battery !== 'none' && markets.includes('eu')) out.push('eu_battery');
 
   // Market access follows where you sell, not where you source.
   if (markets.includes('eu') || markets.includes('uk')) {
     out.push('eu_ce');
     if (markets.includes('eu')) out.push('eu_gpsr');
   }
+
+  // A product a child is expected to use is a children's product, and the cute
+  // render-driven category walks into this constantly.
+  if (spec.audience === 'children') out.push('cpsia');
+
   return [...new Set(out)];
 }
 
-function hasElectronics(spec: ProductSpec): boolean {
-  return spec.parts.some((p) => {
-    const t = p.source?.partType;
-    return t === 'mcu' || t === 'regulator' || t === 'analog_ic' || t === 'led' || t === 'sensor' || t === 'connector';
-  });
-}
-
-/** Assembly estimate: explicit operations if given, otherwise derived from the parts list. */
+/**
+ * Assembly estimate: explicit operations if given, otherwise derived from the parts
+ * list. The derived path is a floor, not a measurement - a design that declares its
+ * operations gets a real number, which is the point of declaring them.
+ */
 export function estimateAssemblyMinutes(spec: ProductSpec): number {
   if (spec.operations.length) {
     return Math.round(spec.operations.reduce((sum, o) => sum + o.minutes, 0));
   }
   const parts = totalPartCount(spec);
-  const fasteners = spec.parts.reduce((n, p) => n + (p.id.toLowerCase().includes('screw') || p.label.toLowerCase().includes('screw') ? p.qty : 0), 0);
-  const wires = spec.operations.reduce((n, o) => n + (o.wireCount ?? 0), 0);
-  return Math.round(parts * 0.75 + fasteners * 1.5 + wires * 2 + 5);
-}
-
-function usd(n: number): string {
-  return `$${n.toLocaleString('en-US')}`;
+  const fasteners = spec.parts.reduce(
+    (n, p) => n + (p.id.toLowerCase().includes('screw') || p.label.toLowerCase().includes('screw') ? p.qty : 0),
+    0,
+  );
+  return Math.round(parts * 0.75 + fasteners * 1.5 + 5);
 }

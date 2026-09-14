@@ -38,6 +38,11 @@ export interface PowerSpec {
   externalAdapterCertified?: boolean;
   /** True if a mains adapter is included in the box. That adapter needs a listing. */
   includesAdapter?: boolean;
+  /**
+   * True when the radio is a module certified and used as-is. Changes the filing
+   * from a full intentional-radiator certification to the streamlined module path.
+   */
+  radioModulePrecertified?: boolean;
   maxWatts?: number;
 }
 
@@ -81,8 +86,14 @@ export interface Part {
   /** Approximate solid fraction of the bounding box, 0-1. Defaults to 0.25. */
   solidFraction?: number;
   wallMm?: number;
+  /** Thickest wall in the part. A large spread against `wallMm` pulls sink marks. */
+  maxWallMm?: number;
   draftDeg?: number;
   toleranceMm?: number;
+  /** Moulding only: a feature undercuts the tool, so it needs a slider or lifter. */
+  hasUndercut?: boolean;
+  /** Thread engagement depth available in a plastic boss, mm. */
+  screwEngagementMm?: number;
   /** Faces of this part visible in the finished product. */
   visibleFaces?: Face[];
   /** CNC only: smallest internal corner radius, mm. */
@@ -171,6 +182,11 @@ export interface ProductSpec {
   origin: 'china' | 'domestic' | 'other';
   /** Where it will be sold. This - not the sourcing country - drives CE/GPSR/ISED. */
   markets?: Market[];
+  /**
+   * Who the product is for. Children's products trigger CPSIA testing, and the
+   * render-driven category has a habit of producing cute objects that legally count as toys.
+   */
+  audience?: 'adult' | 'general' | 'children';
   power: PowerSpec;
   features: FeatureIntent[];
   parts: Part[];

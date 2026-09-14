@@ -1,25 +1,22 @@
 import type { MetadataRoute } from "next";
-import { headers } from "next/headers";
+import { siteUrl } from "@/lib/site";
 import { listDesigns, listKits } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:8797";
-  const proto = host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https";
-  const base = `${proto}://${host}`;
-
+  // The origin comes from SITE_URL, not the request's Host header.
   const [designs, kits] = await Promise.all([listDesigns("new", 500), listKits()]);
 
+  const now = new Date();
   const statics = ["", "/generate", "/explore", "/kits", "/leaderboard", "/reference", "/api-docs"].map((p) => ({
-    url: `${base}${p}`,
-    lastModified: new Date(),
+    url: siteUrl(p),
+    lastModified: now,
   }));
 
   return [
     ...statics,
-    ...designs.map((d) => ({ url: `${base}/d/${d.id}`, lastModified: new Date(d.createdAt) })),
-    ...kits.map((k) => ({ url: `${base}/kits/${k.id}`, lastModified: new Date(k.createdAt) })),
+    ...designs.map((d) => ({ url: siteUrl(`/d/${d.id}`), lastModified: new Date(d.createdAt) })),
+    ...kits.map((k) => ({ url: siteUrl(`/kits/${k.id}`), lastModified: new Date(k.createdAt) })),
   ];
 }

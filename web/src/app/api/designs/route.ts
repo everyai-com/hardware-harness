@@ -1,31 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { specSchema } from "@/lib/spec-schema";
 import { createDesign } from "@/lib/create-design";
-import { listDesigns } from "@/lib/db/queries";
-import { rateLimit } from "@/lib/cf";
+import { pageDesigns, parseSort, PAGE_SIZE } from "@/lib/db/queries";
+import { readJsonBody, withinLimits } from "@/lib/cf";
 import { voterHashFromHeaders } from "@/lib/voter";
-import { withCors, corsPreflight } from "@/lib/cors";
+import { apiError, corsPreflight, rateLimitResponse, withCors } from "@/lib/cors";
 
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/designs — recent public designs (agent-friendly leaderboard feed).
+ * GET /api/designs?sort=new|score|likes&page=1&pageSize=24 — the gallery as JSON.
+ * Paginated: the earlier version silently capped at 50, so anything older than the
+ * cap was unreachable through the API and through the gallery.
  */
 export async function GET(req: NextRequest) {
-  const sort = (req.nextUrl.searchParams.get("sort") ?? "new") as "new" | "score" | "likes";
-  const designs = await listDesigns(sort, 50);
+  const sort = parseSort(req.nextUrl.searchParams.get("sort"));
+  const page = Number(req.nextUrl.searchParams.get("page") ?? "1") || 1;
+  const pageSize = Number(req.nextUrl.searchParams.get("pageSize") ?? String(PAGE_SIZE)) || PAGE_SIZE;
+
+  const result = await pageDesigns(sort, page, pageSize);
+
   return withCors(
     NextResponse.json({
-      designs: designs.map((d) => ({
+      designs: result.designs.map((d) => ({
         id: d.id,
         title: d.title,
         score: d.scoreTotal,
         gatesPassed: d.gatesPassed,
         producedBy: d.producedBy,
         remixOf: d.remixOf,
+        likes: d.likes,
+        views: d.views,
         createdAt: d.createdAt,
         url: `/d/${d.id}`,
       })),
+      page: result.page,
+      pageSize: result.pageSize,
+      total: result.total,
+      hasMore: result.hasMore,
+      sort,
     }),
   );
 }
@@ -37,52 +50,53 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const vh = await voterHashFromHeaders(req.headers);
-  // 20 publishes per visitor per day — agents included. Score-only /api/evaluate stays unlimited.
-  if (!(await rateLimit(`publish:${vh}`, 20))) {
-    return withCors(
-      NextResponse.json(
-        { error: "Daily limit of 20 published designs reached. /api/evaluate is unlimited; self-host for unlimited publishes." },
-        { status: 429 },
-      ),
-    );
-  }
+  // Publishes write rows and run the engine, so they get a burst limit and a daily
+  // quota. /api/evaluate stays generous for agents that only want a score.
+  const tripped = await withinLimits([
+    { key: `publish:burst:${vh}`, limit: 5, windowSeconds: 60 },
+    { key: `publish:day:${vh}`, limit: 20, windowSeconds: 86_400 },
+  ]);
+  if (tripped) return rateLimitResponse(tripped);
 
-  let body: { spec?: unknown; prompt?: unknown; author?: unknown; remixOf?: unknown };
-  try {
-    body = (await req.json()) as typeof body;
-  } catch {
-    return withCors(NextResponse.json({ error: "invalid JSON body" }, { status: 400 }));
-  }
+  const body = await readJsonBody(req);
+  if (!body.ok) return apiError(body.error, 400);
+  const { spec, prompt, author, remixOf } = body.value as {
+    spec?: unknown;
+    prompt?: unknown;
+    author?: unknown;
+    remixOf?: unknown;
+  };
 
-  const parsed = specSchema.safeParse(body.spec);
+  const parsed = specSchema.safeParse(spec);
   if (!parsed.success) {
-    return withCors(
-      NextResponse.json(
-        { error: "spec failed validation", issues: parsed.error.issues.slice(0, 20) },
-        { status: 422 },
-      ),
-    );
+    return apiError("spec failed validation", 422, { issues: parsed.error.issues.slice(0, 20) });
   }
 
-  const created = await createDesign({
-    prompt: typeof body.prompt === "string" ? body.prompt : undefined,
-    spec: parsed.data,
-    model: null,
-    author: typeof body.author === "string" ? body.author.slice(0, 80) : "agent",
-    remixOf: typeof body.remixOf === "string" ? body.remixOf : undefined,
-  });
+  try {
+    const created = await createDesign({
+      prompt: typeof prompt === "string" ? prompt.slice(0, 2000) : undefined,
+      spec: parsed.data,
+      model: null,
+      author: typeof author === "string" ? author.slice(0, 80) : "agent",
+      remixOf: typeof remixOf === "string" ? remixOf.slice(0, 120) : undefined,
+    });
 
-  return withCors(
-    NextResponse.json(
-      {
-        slug: created.slug,
-        score: created.scoreTotal,
-        gatesPassed: created.gatesPassed,
-        url: `/d/${created.slug}`,
-      },
-      { status: 201 },
-    ),
-  );
+    return withCors(
+      NextResponse.json(
+        {
+          slug: created.slug,
+          score: created.scoreTotal,
+          gatesPassed: created.gatesPassed,
+          url: `/d/${created.slug}`,
+        },
+        { status: 201 },
+      ),
+    );
+  } catch (e) {
+    // A publish that did not land must not report success.
+    console.error("createDesign failed:", e instanceof Error ? e.stack : e);
+    return apiError("could not publish the design — retry shortly", 503);
+  }
 }
 
 export async function OPTIONS() {

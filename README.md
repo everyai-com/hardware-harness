@@ -49,7 +49,7 @@ Full reasoning: **`PLAN.md`** (what to build) and **`BUSINESS.md`** (which model
 |---|---|---|
 | 1 | This file | The project and the thesis |
 | 2 | **`EVIDENCE.md`** | Every primary source, so you can check anything |
-| 3 | **`BUSINESS.md`** | The four business models with arithmetic, and the dead zone |
+| 3 | **`BUSINESS.md`** | Every business model with arithmetic, the dead zone, and one published correction |
 | 4 | **`PLAN.md`** | What we're building, in what order, with kill criteria |
 | 5 | **`LUXOBENCH.md`** §1–5 | The benchmark, and what the two live runs actually showed |
 | 6 | `harness/README.md` | The engine, and how to wire it into your agent |
@@ -75,21 +75,22 @@ node src/index.ts --business      # which business models actually clear
 node src/index.ts --fulfilment    # one unit at a time vs batched production
 node src/index.ts --taxonomy      # the accumulated failure library
 node src/index.ts --full lamp-astra
-node --test "tests/*.test.ts"     # 14 tests incl. the MCP transport
+node --test "tests/*.test.ts"     # 34 tests incl. the MCP transport
 node src/mcp/server.ts            # MCP server (stdio)
 ```
 
-**10 hard gates · 36 DFM rules · 16 failure modes · 14 MCP tools.**
+**10 hard gates · 36 DFM rules · 16 failure modes · 14 MCP tools** — and `node --test` fails if the rule
+catalogue and the implementation drift apart, because five rules once existed only in the docs.
 
 What it catches today, on real published designs:
 
 | Design | Score | Gates | Worst finding |
 | --- | --- | --- | --- |
 | Cube lamp — Astra | 4.13/5 | FAIL | The "face" is on the **back** of the base |
-| Cube lamp — Fable 5.1 | 1.79/5 | FAIL | Firmware pin map contradicts the board footprints |
+| Cube lamp — Fable 5.1 | 2.11/5 | FAIL | Firmware pin map contradicts the board footprints |
 | Mini DJ controller | 1.85/5 | FAIL | 25 parts, no board in the BOM, firmware never compiled |
 | Voice note-taker (generated) | 1.33/5 | FAIL | 5 electronic parts, **no firmware shipped at all** |
-| Voice note-taker (board-based) | 3.38/5 | FAIL | Lithium cell — the one honest remaining trade |
+| Voice note-taker (board-based) | 3.56/5 | FAIL | Lithium cell — the one honest remaining trade |
 
 See `harness/README.md` for the tool list and MCP wiring.
 
@@ -130,20 +131,26 @@ Deploy instructions: `web/README.md`.
 | **`PROCESS.md`** | Every stage of the pipeline and the tool that exists for it today. Also: Lovable funded a direct competitor |
 | **`LUXOBENCH.md`** | The benchmark, designed to be ungameable — and the two live runs analysed, with predictions registered before results |
 | **`PLAN.md`** | What to build |
-| **`BUSINESS.md`** | The four business models with arithmetic, including why low-volume consumer electronics are dead |
+| **`BUSINESS.md`** | The business models with arithmetic, including why low-volume consumer electronics are dead — and the one claim in this repo the engine disproved |
 | **`apify-output/`** | **The raw scraped thread** — 459 comments, 395 authors, Sep 2026. The primary evidence behind `LUXOBENCH.md` §9–11 |
 | **`data_x_comments.csv`** | An earlier 50-reply sample of the same thread |
+
+The docs are held to the engine. Where a document quotes a number, that number is reproducible from
+`harness/` — and when it was not, the document says so and shows what changed. `BUSINESS.md` §Addendum 3
+is the worked example: an earlier draft claimed kits beat every other model, `compareFulfilment()`
+disagreed, and the correction is published rather than quietly deleted.
 
 ---
 
 ## The five findings that matter most
 
-1. **Certification creates a hard volume wall.** $10,500 of FCC + UN38.3 is $105/unit at 100 units and
-   $10.50 at 1,000. Below ~10k units, regulated electronics cannot compete on price. This is arithmetic,
-   not opinion.
+1. **Certification creates a hard volume wall.** FCC radio plus UN38.3 is published at
+   **$10,500–$16,000** — $105/unit at 100 units and $10.50 at 1,000 on the low bound, and the harness
+   books the midpoint. Below ~10k units, regulated electronics cannot compete on price. This is
+   arithmetic, not opinion.
 2. **Per-unit labour is the dominant cost at low volume.** The generated voice note-taker: $38 of parts,
    **$153 of assembly labour**, 262 minutes. The same product rebuilt around one assembled PCB: 39
-   minutes.
+   minutes, and $38/hour of labour instead of −$26.
 3. **Nobody publishes cost.** 24 asks across three datasets, zero answers. It is the most-requested and
    least-supplied number in the category — which makes it the product.
 4. **Geometric overlap is the wrong metric.** The highest-scoring CAD model on the market put a lamp's
@@ -160,7 +167,9 @@ Deploy instructions: `web/README.md`.
 harness/          the engine, gates, fixtures and MCP server
   src/knowledge/  manufacturing, compliance, cost and failure data — every rule carries its evidence
   src/engine/     DFM checks, process selection, landed cost, gates, scorecard, business + fulfilment
-  src/fixtures/   the lamp reference, the two live benchmark designs, and the corrected rebuild
+  src/fixtures/   the lamp reference, the two live benchmark designs, the generated voice note-taker
+                  and its corrected rebuild
+  tests/          34 tests, including the MCP transport and a rule-catalogue parity check
   src/mcp/        the MCP stdio server
 apify-output/     raw scraped thread data (gitignored)
 *.md              the research and decision documents

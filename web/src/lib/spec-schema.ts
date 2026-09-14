@@ -19,6 +19,7 @@ export const PROCESSES = [
   "pcb_assembly",
   "soft_tool",
   "injection_molding",
+  "injection_molding_multicavity",
 ] as const;
 export const PART_TYPES = [
   "mcu",
@@ -113,8 +114,14 @@ const partSchema = z.object({
   bboxMm: bboxSchema.default(DEFAULT_CATALOG_BBOX),
   solidFraction: num.min(0.01).max(1).optional(),
   wallMm: num.positive().optional(),
+  /** Thickest wall; a >2x spread against wallMm pulls sink marks when moulded. */
+  maxWallMm: num.positive().optional(),
   draftDeg: num.optional(),
   toleranceMm: num.positive().optional(),
+  /** Moulding only: implies a slider or lifter in the tool. */
+  hasUndercut: z.boolean().optional(),
+  /** Thread engagement available in a plastic boss, mm. */
+  screwEngagementMm: num.positive().optional(),
   visibleFaces: z.array(lcEnum(FACES)).optional(),
   internalCornerRadiusMm: num.positive().optional(),
   holeToBendMm: num.positive().optional(),
@@ -183,6 +190,8 @@ const powerSchema = z.object({
   usbPowered: z.boolean().default(false),
   externalAdapterCertified: z.boolean().optional(),
   includesAdapter: z.boolean().optional(),
+  /** A radio module certified and used as-is takes the streamlined FCC filing. */
+  radioModulePrecertified: z.boolean().optional(),
   maxWatts: num.positive().optional(),
 });
 
@@ -215,6 +224,13 @@ export const specSchema = z.object({
   targetQuantities: z.array(int.positive()).nonempty().default([1, 100, 1000]),
   origin: lcEnum(["china", "domestic", "other"]).default("china"),
   markets: z.array(lcEnum(["us", "eu", "uk", "ca"])).optional(),
+  /** A children's product triggers CPSIA testing; the render-driven category walks into this. */
+  audience: lcEnum(["adult", "general", "children"]).optional(),
+  /**
+   * Defaulted for LLM tolerance: a generated spec that omits power still evaluates
+   * rather than crashing the engine. The MCP surface requires it, because an agent
+   * asking for a verdict should have to state the safety envelope.
+   */
   power: powerSchema.default({
     mainsInside: false,
     wireless: "none",

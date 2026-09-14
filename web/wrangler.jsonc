@@ -19,12 +19,15 @@
       "migrations_dir": "drizzle/migrations"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "R2",
-      "bucket_name": "luxo-assets"
-    }
-  ],
+  // No R2 binding: the app stores designs in D1 and nothing needs object storage
+  // yet. Add the bucket back when a design actually ships an artifact (STEP/STL,
+  // photos, gerbers) instead of keeping a dead binding in the deploy manifest.
+  "vars": {
+    // Absolute origin for the sitemap, canonical URLs and Open Graph images.
+    // This is the `next dev` default; set the real origin per environment in the
+    // Cloudflare dashboard or with `wrangler secret put SITE_URL`.
+    "SITE_URL": "http://localhost:3000"
+  },
   "kv_namespaces": [
     {
       "binding": "KV",

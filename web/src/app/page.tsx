@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { listDesigns, listKits, countDesigns } from "@/lib/db/queries";
+import { listDesigns, listKits, countDesigns, buildCountsFor } from "@/lib/db/queries";
 import { DesignCard } from "@/components/design-card";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const [designs, kits, total] = await Promise.all([listDesigns("score", 3), listKits(), countDesigns()]);
+  const receipts = await buildCountsFor(designs.map((d) => d.id));
 
   return (
     <div className="space-y-14">
@@ -21,18 +22,27 @@ export default async function HomePage() {
         <p className="max-w-2xl text-lg text-muted">
           Describe a thing, get a buildable design — BOM, wiring, assembly guide, and a landed cost
           table nobody else publishes. Every design is scored by the LuxoBench harness: DFM rules,
-          nine build gates, and the invisible lines (tooling, duty, certification) that generated
+          ten build gates, and the invisible lines (tooling, duty, certification) that generated
           BOMs always leave out.
         </p>
         <div className="flex flex-wrap items-center gap-4">
           <Link
             href="/generate"
-            className="rounded-lg bg-accent px-5 py-2.5 font-semibold text-background hover:opacity-90 transition-opacity"
+            className="rounded-lg bg-accent px-5 py-2.5 font-semibold text-background hover:opacity-90 transition-opacity focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Generate a design →
           </Link>
-          <Link href="/explore" className="text-sm text-muted hover:text-foreground">
+          <Link
+            href="/explore"
+            className="text-sm text-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
             or see what&apos;s possible ({total} designs) →
+          </Link>
+          <Link
+            href="/builds"
+            className="text-sm text-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            receipts: what things really cost →
           </Link>
         </div>
       </section>
@@ -75,7 +85,7 @@ export default async function HomePage() {
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           {designs.map((d) => (
-            <DesignCard key={d.id} design={d} />
+            <DesignCard key={d.id} design={d} receipts={receipts.get(d.id) ?? 0} />
           ))}
         </div>
       </section>

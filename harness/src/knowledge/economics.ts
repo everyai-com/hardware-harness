@@ -54,6 +54,11 @@ export const HIDDEN_COSTS = {
   seaFreightDays: [25, 45] as [number, number],
   /** Packaging, per unit, for a small consumer product. */
   packagingPerUnitUsd: [0.8, 3] as [number, number],
+  /**
+   * Freight volume multiplier: a carton of parts is mostly air, so chargeable volume
+   * runs above the solid volume of the parts themselves.
+   */
+  packingVoidFactor: 2.5,
   source: 'alexflorias BOM breakdown (driver signing); OPERATIONS.md per-order model',
 };
 

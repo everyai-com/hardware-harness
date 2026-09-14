@@ -3,8 +3,9 @@
  *
  * Every entry is a failure that has already happened in public, with the evidence
  * attached. This is the accumulated asset: models change every few weeks, these
- * observations do not. The DFM rule engine implements these; the taxonomy explains
- * them to a human.
+ * observations do not. The taxonomy explains a failure to a human; `ruleId` names
+ * the rule that catches it from a spec, where one exists. Two entries deliberately
+ * have none - they are what only a physical build can find.
  */
 
 export interface FailureMode {

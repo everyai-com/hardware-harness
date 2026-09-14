@@ -46,8 +46,9 @@ const ENDPOINTS = [
   {
     method: "GET",
     path: "/api/designs",
-    query: "?sort=new|score|likes",
-    returns: "The public gallery as JSON: id, title, score, gates, producedBy, remixOf, url.",
+    query: "?sort=new|score|likes&page=1&pageSize=24",
+    returns:
+      "One page of the public gallery as JSON, with { page, pageSize, total, hasMore } so nothing is silently truncated.",
   },
   {
     method: "GET",
@@ -56,10 +57,53 @@ const ENDPOINTS = [
   },
   {
     method: "POST",
+    path: "/api/designs/[id]/outcomes",
+    body: `{
+  "kind": "build" | "quote" | "test" | "note",
+  "summary": "Printed both halves, wired the LED module, powered on first try",
+  "author": "your-handle",
+  "data": {
+    "costPaidUsd": 43.10,
+    "assemblyMinutes": 38,
+    "poweredOn": true,
+    "failed": "USB-C cutout needed 0.2mm filing",
+    "proofUrl": "https://example.com/photo.jpg"
+  }
+}`,
+    returns:
+      "201 with the stored outcome. This is the loop the project exists for: estimates are claims, receipts are measurements. A build earns the VERIFIED marker when it carries a cost, assembly minutes, a working device and an evidence link — anything less is still stored, and still useful, but is not a receipt.",
+  },
+  {
+    method: "GET",
+    path: "/api/designs/[id]/outcomes",
+    returns: "The recorded reality for one design: builds, live quotes, test results, notes.",
+  },
+  {
+    method: "GET",
+    path: "/api/quote",
+    query: "?mpn=ESP32-S3",
+    returns:
+      "A best-effort live distributor lookup (LCSC), cached. Returns { quote: null } on any failure — the harness estimate is the floor, never the live lookup.",
+  },
+  {
+    method: "POST",
     path: "/api/like",
     body: `{ "id": "lamp-astra" }`,
-    returns: "{ likes, voted } — one vote per visitor.",
+    returns: "{ likes, voted } — one vote per visitor, and only for a design that exists.",
   },
+];
+
+/**
+ * Rate limits, stated plainly. They exist because the endpoints run the engine or
+ * call an upstream API — they are free to use, not free to run.
+ */
+const LIMITS = [
+  { endpoint: "POST /api/evaluate", limit: "30/min, 2,000/day per visitor" },
+  { endpoint: "POST /api/designs", limit: "5/min, 20/day per visitor" },
+  { endpoint: "POST /api/designs/[id]/outcomes", limit: "5/min, 40/day per visitor; 20/day per design" },
+  { endpoint: "GET /api/quote", limit: "20/min, 500/day per visitor" },
+  { endpoint: "POST /api/like", limit: "60/hour per visitor" },
+  { endpoint: "All JSON endpoints", limit: "256 KiB request body" },
 ];
 
 export default function ApiDocsPage() {
@@ -108,6 +152,30 @@ curl -s https://YOUR-DEPLOYMENT.workers.dev/api/designs \\
           )}
         </section>
       ))}
+
+      <section className="rounded-xl border border-line bg-card p-5">
+        <h2 className="font-semibold">Rate limits</h2>
+        <p className="mt-1 text-sm text-muted">
+          Published rather than discovered. Every rejection says which limit was hit and when it resets
+          (<span className="font-mono">retry-after</span>). Self-host for no limits at all.
+        </p>
+        <table className="mt-3 w-full text-sm">
+          <thead>
+            <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
+              <th scope="col" className="py-2">Endpoint</th>
+              <th scope="col" className="py-2">Limit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {LIMITS.map((l) => (
+              <tr key={l.endpoint} className="border-b border-line/50 last:border-0">
+                <td className="py-2 font-mono text-xs">{l.endpoint}</td>
+                <td className="py-2 text-muted">{l.limit}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
     </div>
   );
 }

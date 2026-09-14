@@ -179,7 +179,7 @@ export const RULES: Record<RuleId, RuleDef> = {
     severity: 'block',
     title: 'Programmable or analog part sourced from a non-authorised channel',
     rationale: 'Counterfeits concentrate in exactly these part types, and a fake MCU fails at the worst time.',
-    evidence: 'ERAI: most counterfeited are analog ICs, voltage regulators, STM32F103 class MCUs; authorised channels cost 5-15% more',
+    evidence: 'ERAI: most counterfeited are analog ICs, voltage regulators, STM32F103 class MCUs; authorised channels cost 5-15% more. Broker channels (AliExpress/eBay) block; LCSC is reported as an advisory, because a primary-source Asia-market part and a re-marked one look identical from a BOM line.',
   },
   CERT_GAP: {
     id: 'CERT_GAP',
