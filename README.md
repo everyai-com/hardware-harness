@@ -112,9 +112,11 @@ KV, Workers AI). MIT licensed, one-click self-hostable.
 ```bash
 cd web
 npm install --include=dev
-npm run harness:verify   # prove the bundled engine scores identically to this CLI
-npm run dev
+npm run setup            # bundle the harness, create and seed the local D1
+npm run dev              # http://localhost:3000
 ```
+
+`npm run harness:verify` proves the bundled engine scores identically to the CLI.
 
 Deploy instructions: `web/README.md`.
 

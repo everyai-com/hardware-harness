@@ -36,12 +36,21 @@ verified score-identical by `npm run harness:verify`.
 
 ```bash
 npm install --include=dev        # your npm may default to omit=dev
+npm run setup                    # bundle ../harness + create and seed the local D1
+npm run dev                      # next dev with local bindings (D1/R2/KV)
+```
+
+`npm run setup` is `harness:build` + `db:migrate:local` + `seed.mjs` + `db:seed:local`.
+`npm run dev` re-runs the harness bundle and local migrations itself, so a fresh clone
+boots straight into a seeded gallery. The individual steps, if you want them:
+
+```bash
 npm run harness:build            # bundle ../harness → src/lib/harness/engine.mjs
 npm run harness:verify           # bundle scores == CLI scores on all fixtures
 npm run db:generate              # drizzle migrations from src/lib/db/schema.ts
 npm run db:migrate:local         # apply to local D1
-npm run harness:build && node scripts/seed.mjs && npm run db:seed:local
-npm run dev                      # next dev with local bindings (D1/R2/KV)
+node scripts/seed.mjs            # regenerate drizzle/seed.sql from the fixtures
+npm run db:seed:local
 ```
 
 Local AI generation uses Workers AI through the remote binding — it needs a

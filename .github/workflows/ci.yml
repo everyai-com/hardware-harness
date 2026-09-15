@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  harness:
+    name: Harness — tests + typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: harness/package-lock.json
+
+      - name: Install
+        working-directory: harness
+        run: npm ci
+
+      - name: Test (gates, cost model, MCP transport)
+        working-directory: harness
+        run: npm test
+
+      - name: Typecheck
+        working-directory: harness
+        run: npm run check
+
+      - name: Score the benchmark fixtures
+        working-directory: harness
+        run: node src/index.ts
+
+  web:
+    name: Web — bundle parity, lint, typecheck, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        working-directory: web
+        run: npm ci --include=dev
+
+      - name: Verify bundled engine scores identically to the CLI
+        working-directory: web
+        run: npm run harness:verify
+
+      - name: Lint
+        working-directory: web
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: web
+        run: npx tsc --noEmit
+
+      - name: Build
+        working-directory: web
+        run: npm run build
