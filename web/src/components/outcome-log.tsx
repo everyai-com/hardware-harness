@@ -1,6 +1,8 @@
 import { parseStoredJson } from "@/lib/db/queries";
 import type { OutcomeRow } from "@/lib/db/queries";
 import { receiptFrom, isVerifiedBuild, receiptSummary, missingForVerification } from "@/lib/receipts";
+import { calibrateFromOutcomes } from "@/lib/harness/score";
+import type { EstimateVsActual } from "@/lib/harness/score";
 import { BuildReceiptForm } from "@/components/build-receipt";
 
 const KIND_BADGE: Record<string, string> = {
@@ -17,9 +19,39 @@ const KIND_BADGE: Record<string, string> = {
  * is only an opinion, because those are different kinds of evidence and conflating
  * them is how a gallery turns into marketing.
  */
-export function OutcomeLog({ outcomes, designId }: { outcomes: OutcomeRow[]; designId: string }) {
+export function OutcomeLog({
+  outcomes,
+  designId,
+  estimatedCostUsd,
+  estimatedMinutes,
+}: {
+  outcomes: OutcomeRow[];
+  designId: string;
+  /** Harness qty-1 build estimate — the prediction the receipts check. */
+  estimatedCostUsd: number;
+  /** Harness assembly estimate, minutes. */
+  estimatedMinutes: number;
+}) {
   const builds = outcomes.filter((o) => o.kind === "build");
   const verified = builds.map((o) => receiptFrom(parseStoredJson(o.dataJson))).filter(isVerifiedBuild).length;
+
+  // Estimate-vs-actual calibration from the measured builds on this design.
+  const pairs: EstimateVsActual[] = builds.flatMap((o) => {
+    const r = receiptFrom(parseStoredJson(o.dataJson));
+    if (r.costPaidUsd === undefined && r.assemblyMinutes === undefined) return [];
+    return [
+      {
+        estimatedCostUsd,
+        estimatedMinutes,
+        costRatio: r.costPaidUsd !== undefined && estimatedCostUsd > 0 ? r.costPaidUsd / estimatedCostUsd : undefined,
+        timeRatio:
+          r.assemblyMinutes !== undefined && estimatedMinutes > 0 ? r.assemblyMinutes / estimatedMinutes : undefined,
+        withinCostTolerance: true,
+        withinTimeTolerance: true,
+      },
+    ];
+  });
+  const calibration = pairs.length > 0 ? calibrateFromOutcomes(pairs) : null;
 
   return (
     <section className="rounded-xl border border-line bg-card p-5">
@@ -35,6 +67,14 @@ export function OutcomeLog({ outcomes, designId }: { outcomes: OutcomeRow[]; des
         Reality recorded against this design — builds, live quotes, test results. Every measurement
         makes the harness estimates sharper for everyone.
       </p>
+      {calibration && (
+        <p className="mt-3 rounded-lg border border-accent/30 bg-accent/5 px-4 py-2 text-sm">
+          <span className="font-mono text-xs font-semibold uppercase tracking-wide text-accent">
+            Calibration · {calibration.confidence} confidence
+          </span>
+          <span className="block text-muted">{calibration.note}</span>
+        </p>
+      )}
 
       <BuildReceiptForm designId={designId} />
 

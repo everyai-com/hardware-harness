@@ -9,6 +9,45 @@ const EXAMPLES = [
   "A tiny 3-key macro keypad with a volume roller, wired USB, no battery",
 ];
 
+const TEMPLATES: Array<{ name: string; blurb: string; prompt: string }> = [
+  {
+    name: "Desk lamp",
+    blurb: "USB-C · LED · touch",
+    prompt:
+      "A minimalist desk lamp: 3D-printed base with rounded corners, frosted diffuser dome on top, USB-C powered 5V warm-white LED module, capacitive touch dimmer through the base wall with 3 brightness levels, no battery, no radio, sold in the US to adults",
+  },
+  {
+    name: "Macro keypad",
+    blurb: "USB · no battery",
+    prompt:
+      "A 6-key macro keypad with one rotary encoder for volume, wired USB-C, RP2040 brain, 3D-printed case with brass heat-set inserts, no battery, no radio, sold in the US to adults",
+  },
+  {
+    name: "Plant monitor",
+    blurb: "ESP32 · sensor",
+    prompt:
+      "A soil-moisture plant monitor: ESP32-S3 module with pre-certified radio, capacitive soil probe, 0.96in OLED status display, USB-C powered with no battery, 3D-printed stake enclosure, sold in the US to adults",
+  },
+  {
+    name: "Voice note-taker",
+    blurb: "I2S mic + amp",
+    prompt:
+      "A magnetic voice note-taker: press once to record via I2S MEMS microphone, tap again to play back through a 3W I2S amplifier and small speaker, ESP32-S3 brain, USB-C powered, no battery, no radio, sticks to a fridge, sold in the US to adults",
+  },
+  {
+    name: "Phone stand",
+    blurb: "passive · no electronics",
+    prompt:
+      "A passive adjustable phone stand: CNC aluminium base with silicone pads, holds phones 65-85mm wide at 3 viewing angles, no electronics, no fasteners visible from the front, sold in the US to adults",
+  },
+  {
+    name: "Desk organizer",
+    blurb: "passive · printed",
+    prompt:
+      "A modular desk organizer: interlocking FDM-printed trays for pens, SD cards and a phone slot, stackable, no electronics, wall thickness at least 1.5mm everywhere, sold in the US to adults",
+  },
+];
+
 export default function GenerateForm({
   defaultPrompt,
   remixOf,
@@ -45,6 +84,15 @@ export default function GenerateForm({
       .filter(Boolean)
       .join("; ");
     submit(qa ? `${base}\n\nRequirements from clarifying questions: ${qa}` : base);
+  }
+
+  function fillPrompt(text: string) {
+    const el = document.querySelector('textarea[name="prompt"]') as HTMLTextAreaElement | null;
+    if (el) {
+      el.value = text;
+      el.focus();
+    }
+    setState({ error: null });
   }
 
   async function askQuestions() {
@@ -124,13 +172,33 @@ export default function GenerateForm({
         <div className="rounded-lg border border-fail/40 bg-fail/10 px-4 py-3 text-sm text-fail">{state.error}</div>
       )}
 
-      <div className="space-y-2">
-        <p className="text-sm text-muted">Need a starting point?</p>
+      <div className="space-y-3">
+        <p className="text-sm text-muted">Start from a template — fully specified prompts that score well:</p>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {TEMPLATES.map((t) => (
+            <button
+              key={t.name}
+              type="button"
+              onClick={() => fillPrompt(t.prompt)}
+              className="rounded-xl border border-line bg-card p-4 text-left transition-colors hover:border-accent"
+            >
+              <span className="font-semibold">{t.name}</span>
+              <span className="block font-mono text-[11px] text-accent">{t.blurb}</span>
+              <span className="mt-1 line-clamp-2 block text-xs text-muted">{t.prompt}</span>
+            </button>
+          ))}
+        </div>
+        <p className="text-sm text-muted">Or tap an idea to fill the box:</p>
         <div className="flex flex-col gap-2">
           {EXAMPLES.map((e) => (
-            <p key={e} className="rounded-lg border border-line bg-card px-4 py-2 text-sm text-muted">
+            <button
+              key={e}
+              type="button"
+              onClick={() => fillPrompt(e)}
+              className="rounded-lg border border-line bg-card px-4 py-2 text-left text-sm text-muted transition-colors hover:border-accent hover:text-foreground"
+            >
               {e}
-            </p>
+            </button>
           ))}
         </div>
       </div>

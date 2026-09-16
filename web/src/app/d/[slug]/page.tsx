@@ -13,6 +13,9 @@ import { LikeButton } from "@/components/like-button";
 import { Gates, Metrics, Scorecard, CostTable, Findings } from "@/components/report-view";
 import { SpecView } from "@/components/spec-view";
 import { OutcomeLog } from "@/components/outcome-log";
+import { ModelViewer } from "@/components/model-viewer";
+import { CostChart, LeadTimeStrip } from "@/components/cost-chart";
+import { DesignActions } from "@/components/design-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -104,26 +107,31 @@ export default async function DesignPage({ params }: { params: Promise<{ slug: s
           >
             Remix this design
           </Link>
-          <a
-            href={`/api/designs/${design.id}`}
-            className="font-mono text-sm text-muted hover:text-foreground"
-          >
-            spec.json ↓
-          </a>
         </div>
+        <DesignActions designId={design.id} specJson={design.specJson} />
       </header>
 
       <Metrics report={report} />
+      <ModelViewer spec={spec} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Gates report={report} />
         <Scorecard report={report} />
       </div>
 
+      <div className="grid gap-6 lg:grid-cols-2">
+        <CostChart report={report} />
+        <LeadTimeStrip report={report} />
+      </div>
       <CostTable report={report} />
       <Findings report={report} />
       <SpecView spec={spec} quotes={quotes} />
-      <OutcomeLog outcomes={outcomes} designId={design.id} />
+      <OutcomeLog
+        outcomes={outcomes}
+        designId={design.id}
+        estimatedCostUsd={report.cost.quantities.find((q) => q.quantity === 1)?.personalBuildUsd ?? report.cost.quantities[0]?.personalBuildUsd ?? 0}
+        estimatedMinutes={report.metrics.assemblyMinutes}
+      />
 
       {(original || remixes.length > 0) && (
         <section className="rounded-xl border border-line bg-card p-5">

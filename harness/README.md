@@ -21,8 +21,10 @@ node src/index.ts                 # score every fixture in the library
 node src/index.ts --full lamp-astra
 node src/index.ts --taxonomy      # the accumulated failure library
 node src/index.ts --business      # which business models clear, and at what labour rate
+node src/index.ts --parts ESP32   # search the curated part catalogue
+node src/index.ts --diff lamp-astra lamp-fable   # structural diff of two designs
 
-node --test "tests/*.test.ts"     # 32 tests, including the MCP transport
+node --test "tests/*.test.ts"     # tests, including the MCP transport
 node src/mcp/server.ts            # the MCP server (stdio)
 ```
 
@@ -72,6 +74,10 @@ The point is that the agent produces the design and the harness decides whether 
 | `hardware_spec_schema` | The `ProductSpec` shape the harness expects |
 | `hardware_business_model` | Gross profit per hour of your own labour — the yardstick for whether a model is a business |
 | `hardware_fulfilment` | One unit at a time versus a batched production session, for the same single-unit delivery |
+| `hardware_part_lookup` | Real parts from the curated catalogue: typical price, legitimate distributors, alternates, counterfeit risk |
+| `hardware_record_outcome` | Record a build receipt and get estimate-vs-actual deltas — the measurement that calibrates the model |
+| `hardware_calibration` | Aggregate cost/time correction factors from measured outcomes |
+| `hardware_spec_diff` | Structural diff of two designs: parts, score, gates flipped, cost deltas |
 
 ## The gates
 
@@ -137,6 +143,9 @@ end of every published range is how a cost model quietly becomes marketing.
   agree.
 - **Gates are separate from scores.** Gates are pass/fail reality checks; scores are comparisons. A high
   score with a failed gate is still a failed design. Only blocking findings fail a gate.
+- **The catalogue grounds the BOM.** `hardware_part_lookup` answers "does this part exist, what does
+  it cost, where do I buy it" from a curated library — so a design stops being plausible-sounding
+  part numbers and starts being orderable lines.
 - **Model-agnostic by construction.** No inference, no API keys, no vendor. The client brings the model.
 - **Buy beats build where it applies.** Sourcing rules point at authorised distributors rather than
   pretending the harness can verify authenticity itself.
@@ -165,7 +174,10 @@ end of every published range is how a cost model quietly becomes marketing.
 
 1. Replace cost proxies with live quotes from LCSC / JLCPCB / DigiKey APIs.
 2. Add STEP/STL ingestion so walls, draft and faces are measured instead of declared.
-3. Record real build outcomes (`hardware_record_outcome`) so the rules stop being static and start
-   being learned.
-4. Publish the scorecard against a real fixture build — the invoice, the cost sheet, the assembly
+3. Publish the scorecard against a real fixture build — the invoice, the cost sheet, the assembly
    time, and the power-on.
+
+Step 3 of the original list — recording real build outcomes — now exists as
+`hardware_record_outcome` + `hardware_calibration`, backed by `src/engine/outcomes.ts`.
+The web hub persists the rows (`outcomes` table); the engine computes the
+estimate-vs-actual deltas and the aggregate correction factors.

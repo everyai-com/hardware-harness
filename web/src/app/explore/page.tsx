@@ -22,15 +22,19 @@ const SORTS: { id: Sort; label: string }[] = [
 export default async function ExplorePage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; page?: string }>;
+  searchParams: Promise<{ sort?: string; page?: string; q?: string; gates?: string }>;
 }) {
-  const { sort, page } = await searchParams;
+  const { sort, page, q, gates } = await searchParams;
   const active = parseSort(sort ?? null);
   const current = Math.max(Number(page ?? "1") || 1, 1);
-  const result = await pageDesigns(active, current, PAGE_SIZE);
+  const query = q?.slice(0, 120) ?? "";
+  const gatesFilter = gates === "pass" || gates === "fail" ? gates : undefined;
+  const result = await pageDesigns(active, current, PAGE_SIZE, { q: query || undefined, gates: gatesFilter });
   const receipts = await buildCountsFor(result.designs.map((d) => d.id));
 
-  const pageHref = (p: number) => `/explore?sort=${active}&page=${p}`;
+  const extra = `${query ? `&q=${encodeURIComponent(query)}` : ""}${gatesFilter ? `&gates=${gatesFilter}` : ""}`;
+  const pageHref = (p: number) => `/explore?sort=${active}&page=${p}${extra}`;
+  const sortHref = (s: string) => `/explore?sort=${s}${extra}`;
 
   return (
     <div className="space-y-6">
@@ -47,7 +51,7 @@ export default async function ExplorePage({
           {SORTS.map((s) => (
             <Link
               key={s.id}
-              href={`/explore?sort=${s.id}`}
+              href={sortHref(s.id)}
               aria-current={active === s.id ? "page" : undefined}
               className={`rounded-lg border px-3 py-1.5 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                 active === s.id ? "border-accent text-accent" : "border-line text-muted hover:text-foreground"
@@ -59,18 +63,80 @@ export default async function ExplorePage({
         </nav>
       </header>
 
+      <form method="get" action="/explore" className="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="sort" value={active} />
+        {gatesFilter && <input type="hidden" name="gates" value={gatesFilter} />}
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-muted">Search designs</span>
+          <input
+            type="text"
+            name="q"
+            defaultValue={query}
+            placeholder="lamp · keypad · ESP32…"
+            className="w-64 rounded-lg border border-line bg-card px-3 py-1.5 text-sm outline-none placeholder:text-muted focus:border-accent"
+          />
+        </label>
+        <button
+          type="submit"
+          className="rounded-lg border border-line px-4 py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+        >
+          Search
+        </button>
+        <nav aria-label="Filter by gates" className="flex gap-2">
+          <Link
+            href={sortHref(active)}
+            aria-current={!gatesFilter ? "page" : undefined}
+            className={`rounded-lg border px-3 py-1.5 text-sm ${!gatesFilter ? "border-accent text-accent" : "border-line text-muted hover:text-foreground"}`}
+          >
+            All
+          </Link>
+          <Link
+            href={`${sortHref(active)}&gates=pass`}
+            aria-current={gatesFilter === "pass" ? "page" : undefined}
+            className={`rounded-lg border px-3 py-1.5 text-sm ${gatesFilter === "pass" ? "border-accent text-accent" : "border-line text-muted hover:text-foreground"}`}
+          >
+            Passed ✓
+          </Link>
+          <Link
+            href={`${sortHref(active)}&gates=fail`}
+            aria-current={gatesFilter === "fail" ? "page" : undefined}
+            className={`rounded-lg border px-3 py-1.5 text-sm ${gatesFilter === "fail" ? "border-accent text-accent" : "border-line text-muted hover:text-foreground"}`}
+          >
+            Failed ✗
+          </Link>
+        </nav>
+      </form>
+
       <p className="font-mono text-xs text-muted">
-        {result.total} design{result.total === 1 ? "" : "s"} · page {result.page} of{" "}
+        {result.total} design{result.total === 1 ? "" : "s"}
+        {query ? ` matching "${query}"` : ""}
+        {gatesFilter ? ` · gates ${gatesFilter}` : ""} · page {result.page} of{" "}
         {Math.max(Math.ceil(result.total / result.pageSize), 1)}
       </p>
 
       {result.designs.length === 0 ? (
         <p className="rounded-xl border border-line bg-card p-8 text-center text-muted">
-          Nothing here yet —{" "}
-          <Link href="/generate" className="text-accent hover:underline">
-            generate the first design
-          </Link>
-          .
+          {query || gatesFilter ? (
+            <>
+              Nothing matches —{" "}
+              <Link href="/explore" className="text-accent hover:underline">
+                clear the search
+              </Link>{" "}
+              or{" "}
+              <Link href="/generate" className="text-accent hover:underline">
+                generate it
+              </Link>
+              .
+            </>
+          ) : (
+            <>
+              Nothing here yet —{" "}
+              <Link href="/generate" className="text-accent hover:underline">
+                generate the first design
+              </Link>
+              .
+            </>
+          )}
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

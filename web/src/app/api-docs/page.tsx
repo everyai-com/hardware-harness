@@ -46,14 +46,21 @@ const ENDPOINTS = [
   {
     method: "GET",
     path: "/api/designs",
-    query: "?sort=new|score|likes&page=1&pageSize=24",
+    query: "?sort=new|score|likes&page=1&pageSize=24&q=&gates=pass|fail",
     returns:
-      "One page of the public gallery as JSON, with { page, pageSize, total, hasMore } so nothing is silently truncated.",
+      "One page of the public gallery as JSON, with { page, pageSize, total, hasMore } so nothing is silently truncated. Filter by free text (title/prompt) or by gate verdict.",
   },
   {
     method: "GET",
     path: "/api/designs/[id]",
     returns: "One design's full spec + report + remix lineage as JSON.",
+  },
+  {
+    method: "GET",
+    path: "/api/designs/[id]/bom",
+    query: "?qty=1",
+    returns:
+      "The bill of materials as CSV: one row per part with channel, scaled quantities, and live LCSC prices where cached. The supply-chain artifact — paste it into a cart or hand it to an assembler.",
   },
   {
     method: "POST",

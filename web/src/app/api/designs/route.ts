@@ -9,7 +9,7 @@ import { apiError, corsPreflight, rateLimitResponse, withCors } from "@/lib/cors
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/designs?sort=new|score|likes&page=1&pageSize=24 — the gallery as JSON.
+ * GET /api/designs?sort=new|score|likes&page=1&pageSize=24&q=&gates=pass|fail — the gallery as JSON.
  * Paginated: the earlier version silently capped at 50, so anything older than the
  * cap was unreachable through the API and through the gallery.
  */
@@ -17,8 +17,11 @@ export async function GET(req: NextRequest) {
   const sort = parseSort(req.nextUrl.searchParams.get("sort"));
   const page = Number(req.nextUrl.searchParams.get("page") ?? "1") || 1;
   const pageSize = Number(req.nextUrl.searchParams.get("pageSize") ?? String(PAGE_SIZE)) || PAGE_SIZE;
+  const q = req.nextUrl.searchParams.get("q")?.slice(0, 120) || undefined;
+  const gatesParam = req.nextUrl.searchParams.get("gates");
+  const gates = gatesParam === "pass" || gatesParam === "fail" ? gatesParam : undefined;
 
-  const result = await pageDesigns(sort, page, pageSize);
+  const result = await pageDesigns(sort, page, pageSize, { q, gates });
 
   return withCors(
     NextResponse.json({

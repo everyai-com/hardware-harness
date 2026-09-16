@@ -22,6 +22,29 @@ export { recommendProcess } from "../../../../harness/src/engine/process-select.
 export { renderReport } from "../../../../harness/src/engine/report.ts";
 export { partVolumeCm3, totalPartCount } from "../../../../harness/src/engine/types.ts";
 export { usd } from "../../../../harness/src/engine/util.ts";
+export { diffSpecs } from "../../../../harness/src/engine/spec-diff.ts";
+export type { SpecDiff, PartChange, GateFlip, CostDelta } from "../../../../harness/src/engine/spec-diff.ts";
+export {
+  validateOutcome,
+  compareOutcomeToEstimate,
+  calibrateFromOutcomes,
+  recordOutcome,
+  CALIBRATION_TOLERANCE_PCT,
+} from "../../../../harness/src/engine/outcomes.ts";
+export type {
+  BuildOutcomeInput,
+  ValidatedOutcome,
+  EstimateVsActual,
+  Calibration,
+} from "../../../../harness/src/engine/outcomes.ts";
+export {
+  PART_CATALOGUE,
+  lookupPart,
+  partByMpn,
+  suggestAlternates,
+  catalogueStats,
+} from "../../../../harness/src/knowledge/parts.ts";
+export type { CatalogPart, CounterfeitRisk } from "../../../../harness/src/knowledge/parts.ts";
 export type {
   ProductSpec,
   Part,

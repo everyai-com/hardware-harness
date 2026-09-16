@@ -47,7 +47,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
             t: "Generate",
@@ -58,6 +58,11 @@ export default async function HomePage() {
             t: "Remix",
             d: "Every design is public and forkable like a Midjourney gallery — see what's possible, remix it, publish yours.",
             href: "/explore",
+          },
+          {
+            t: "Compare",
+            d: "What changed, structurally: score delta, gates fixed or broken, parts moved, cost moved. The diff behind every remix.",
+            href: "/compare",
           },
           {
             t: "Build",

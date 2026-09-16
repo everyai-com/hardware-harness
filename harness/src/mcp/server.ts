@@ -25,6 +25,9 @@ import { LAMP_ACCEPTANCE_CRITERIA, LAMP_REFERENCE_FEATURES } from '../fixtures/l
 import type { ProductSpec, Part } from '../engine/types.ts';
 import { evaluateModel } from '../engine/business.ts';
 import { evaluateFulfilment } from '../engine/fulfilment.ts';
+import { lookupPart, partByMpn, suggestAlternates, catalogueStats } from '../knowledge/parts.ts';
+import { recordOutcome, calibrateFromOutcomes, compareOutcomeToEstimate, validateOutcome } from '../engine/outcomes.ts';
+import { diffSpecs } from '../engine/spec-diff.ts';
 
 const PROTOCOL_VERSION = '2024-11-05';
 const SERVER_INFO = { name: 'hardware-harness', version: '0.1.0' };
@@ -311,6 +314,116 @@ const TOOLS: ToolDef[] = [
         imported: a.imported !== false,
       };
       return { single: evaluateFulfilment(inputs, 1), batched: evaluateFulfilment(inputs, inputs.batchSize) };
+    },
+  },
+  {
+    name: 'hardware_part_lookup',
+    description:
+      'Look up real parts in the curated catalogue: typical qty-1 price, legitimate distributors, drop-in alternates, and counterfeit risk. Use it to ground a BOM in parts that exist instead of plausible-sounding part numbers.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Free text: MPN, name, category (e.g. "ESP32", "ultrasonic", "regulator"). Omit for catalogue stats.' },
+        mpn: { type: 'string', description: 'Exact MPN for the full entry plus its alternates.' },
+        limit: { type: 'number', description: 'Max results (default 8).' },
+      },
+    },
+    handler: (args) => {
+      if (typeof args.mpn === 'string' && args.mpn.trim()) {
+        const part = partByMpn(args.mpn);
+        if (!part) throw new Error(`Unknown MPN '${args.mpn}'. Try hardware_part_lookup with a query instead.`);
+        return { part, alternates: suggestAlternates(args.mpn) };
+      }
+      if (typeof args.query === 'string' && args.query.trim()) {
+        const limit = typeof args.limit === 'number' ? Math.max(1, Math.min(args.limit, 50)) : 8;
+        return { results: lookupPart(args.query, limit) };
+      }
+      return { stats: catalogueStats(), note: 'Pass "query" to search or "mpn" for one entry with alternates.' };
+    },
+  },
+  {
+    name: 'hardware_record_outcome',
+    description:
+      'Record a build outcome against a design: what it actually cost, how long it actually took, whether it powered on, and what failed. Returns the validated receipt plus estimate-vs-actual deltas - the measurement that calibrates the cost model from ±40% toward ±10%. The harness computes; the caller persists.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        spec: specSchema,
+        actualCostUsd: { type: 'number' },
+        actualMinutes: { type: 'number' },
+        poweredOn: { type: 'boolean' },
+        failures: { type: 'array', items: { type: 'string' } },
+        proofUrl: { type: 'string' },
+        author: { type: 'string' },
+      },
+      required: ['spec'],
+    },
+    handler: (args) => {
+      const spec = asSpec(args);
+      const { actualCostUsd, actualMinutes, poweredOn, failures, proofUrl, author } = args as Record<string, unknown>;
+      return recordOutcome(spec, {
+        actualCostUsd: actualCostUsd as number | undefined,
+        actualMinutes: actualMinutes as number | undefined,
+        poweredOn: poweredOn as boolean | undefined,
+        failures: failures as string[] | undefined,
+        proofUrl: proofUrl as string | undefined,
+        author: author as string | undefined,
+      });
+    },
+  },
+  {
+    name: 'hardware_calibration',
+    description:
+      'Aggregate calibration from measured outcomes: given estimate-vs-actual pairs, returns the cost/time factors that correct future estimates. Needs 3+ samples for medium confidence.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pairs: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              costRatio: { type: 'number', description: 'actualCost / estimatedCost' },
+              timeRatio: { type: 'number', description: 'actualMinutes / estimatedMinutes' },
+            },
+          },
+        },
+      },
+      required: ['pairs'],
+    },
+    handler: (args) => {
+      const pairs = args.pairs;
+      if (!Array.isArray(pairs)) throw new Error('hardware_calibration needs "pairs": an array of { costRatio, timeRatio }.');
+      return calibrateFromOutcomes(
+        pairs.map((p) => {
+          const r = (p ?? {}) as Record<string, unknown>;
+          return {
+            estimatedCostUsd: 0,
+            estimatedMinutes: 0,
+            costRatio: typeof r.costRatio === 'number' ? r.costRatio : undefined,
+            timeRatio: typeof r.timeRatio === 'number' ? r.timeRatio : undefined,
+            withinCostTolerance: true,
+            withinTimeTolerance: true,
+          };
+        }),
+      );
+    },
+  },
+  {
+    name: 'hardware_spec_diff',
+    description:
+      'Diff two designs structurally: parts added/removed/changed, score delta, gates fixed or broken, blocking-finding delta, and cost deltas at each quantity. The "what changed" behind every remix.',
+    inputSchema: {
+      type: 'object',
+      properties: { specA: specSchema, specB: specSchema },
+      required: ['specA', 'specB'],
+    },
+    handler: (args) => {
+      const a = (args.specA ?? args.spec ?? args.a) as Record<string, unknown> | undefined;
+      const b = (args.specB ?? args.other ?? args.b) as Record<string, unknown> | undefined;
+      if (!a || typeof a !== 'object') throw new Error('hardware_spec_diff needs "specA" and "specB": two ProductSpec objects.');
+      if (!b || typeof b !== 'object') throw new Error('hardware_spec_diff needs "specA" and "specB": two ProductSpec objects.');
+      return diffSpecs(asSpec({ spec: a }), asSpec({ spec: b }));
     },
   },
   {

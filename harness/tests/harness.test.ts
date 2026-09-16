@@ -358,6 +358,10 @@ test('MCP: every tool the README advertises is registered and callable', async (
     'hardware_spec_schema',
     'hardware_business_model',
     'hardware_fulfilment',
+    'hardware_part_lookup',
+    'hardware_record_outcome',
+    'hardware_calibration',
+    'hardware_spec_diff',
   ]) {
     assert.ok(names.includes(tool), `${tool} is registered`);
   }
@@ -473,6 +477,8 @@ test('CLI prints exactly one report per invocation', async () => {
     [['--taxonomy'], '# Failure taxonomy'],
     [['--fulfilment'], '# Fulfilment'],
     [['--full', 'lamp-astra'], '# Cube lamp'],
+    [['--parts', 'ESP32'], '# Parts matching'],
+    [['--diff', 'lamp-astra', 'lamp-fable'], '# Diff:'],
     [[], '# Hardware Harness'],
   ];
   for (const [args, firstLine] of cases) {

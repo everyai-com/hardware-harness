@@ -15,6 +15,8 @@ import { renderReport } from './engine/report.ts';
 import { FAILURE_TAXONOMY } from './knowledge/taxonomy.ts';
 import { compareModels } from './engine/business.ts';
 import { compareFulfilment } from './engine/fulfilment.ts';
+import { lookupPart, catalogueStats } from './knowledge/parts.ts';
+import { diffSpecs } from './engine/spec-diff.ts';
 
 /** Which blocking finding is the headline for each design. Most structural first. */
 const HEADLINE_PRIORITY = [
@@ -61,6 +63,8 @@ function finish(code = 0): void {
 
 const args = process.argv.slice(2);
 const fullIdx = args.indexOf('--full');
+const partsIdx = args.indexOf('--parts');
+const diffIdx = args.indexOf('--diff');
 const wantJson = args.includes('--json');
 const taxonomy = args.includes('--taxonomy');
 const business = args.includes('--business');
@@ -71,6 +75,55 @@ const fulfilment = args.includes('--fulfilment');
  * process itself, so exactly one thing is printed and stdout gets to flush.
  */
 function main(): void {
+  if (partsIdx >= 0) {
+    const query = args[partsIdx + 1] ?? '';
+    if (!query) {
+      const stats = catalogueStats();
+      console.log(`# Part catalogue: ${stats.parts} parts in ${stats.categories.length} categories\n`);
+      console.log(`Categories: ${stats.categories.join(', ')}`);
+      console.log(`High counterfeit risk: ${stats.highRisk.join(', ')}`);
+      console.log('\nRun `node src/index.ts --parts <query>` to search (e.g. ESP32, ultrasonic, regulator).');
+      return;
+    }
+    const results = lookupPart(query, 10);
+    console.log(`# Parts matching "${query}"\n`);
+    if (!results.length) console.log('No matches. Try an MPN fragment, a category (sensor, regulator) or a part type (mcu).');
+    for (const p of results) {
+      console.log(`## ${p.mpn} - ${p.label}`);
+      console.log(`Typical qty-1: $${p.typicalPriceUsd[0]}-$${p.typicalPriceUsd[1]} · via ${p.distributors.join('/')} · counterfeit risk: ${p.counterfeitRisk}`);
+      console.log(`${p.note}`);
+      if (p.alternates.length) console.log(`Alternates: ${p.alternates.join(', ')}`);
+      console.log('');
+    }
+    return;
+  }
+
+  if (diffIdx >= 0) {
+    const idA = args[diffIdx + 1];
+    const idB = args[diffIdx + 2];
+    const specA = FIXTURES.find((f) => f.id === idA);
+    const specB = FIXTURES.find((f) => f.id === idB);
+    if (!specA || !specB) {
+      console.log(`Usage: node src/index.ts --diff <idA> <idB>\nIDs: ${FIXTURES.map((f) => f.id).join(', ')}`);
+      return;
+    }
+    const d = diffSpecs(specA, specB);
+    console.log(`# Diff: ${d.before.name} -> ${d.after.name}\n`);
+    console.log(`${d.summary}\n`);
+    console.log(`Score: ${d.before.score} -> ${d.after.score} (${d.scoreDelta >= 0 ? '+' : ''}${d.scoreDelta})`);
+    for (const g of d.gatesFlipped) console.log(`- Gate ${g.id} ${g.direction === 'fixed' ? 'FIXED' : 'BROKE'}: ${g.label}`);
+    for (const p of d.partsAdded) console.log(`- + ${p.id} (${p.label})`);
+    for (const p of d.partsRemoved) console.log(`- - ${p.id} (${p.label})`);
+    for (const p of d.partsChanged) console.log(`- ~ ${p.id}: ${p.changes.join('; ')}`);
+    console.log('');
+    console.log('| Qty | Before | After | Delta |');
+    console.log('| --- | --- | --- | --- |');
+    for (const c of d.costDeltas) {
+      console.log(`| ${c.quantity} | $${c.beforeUsd} | $${c.afterUsd} | ${c.deltaUsd >= 0 ? '+' : ''}$${c.deltaUsd}${c.deltaPct !== undefined ? ` (${c.deltaPct}%)` : ''} |`);
+    }
+    return;
+  }
+
   if (fulfilment) {
     // The lamp's own numbers: $14.40 of parts, 35 minutes of hands on it, sold at $149.
     // Illustrative inputs for the CLI demo - the MCP surface takes them from the caller.

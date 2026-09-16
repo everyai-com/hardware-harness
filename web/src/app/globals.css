@@ -24,3 +24,24 @@ a {
   text-decoration: none;
   color: inherit;
 }
+
+/* The assembly guide is a bench document: printing a design page keeps the
+   content and drops the chrome. */
+@media print {
+  body > header nav,
+  body > header div[aria-hidden],
+  body > footer,
+  main button {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #111;
+  }
+
+  main section,
+  main div {
+    break-inside: avoid;
+  }
+}

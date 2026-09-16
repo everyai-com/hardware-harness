@@ -74,13 +74,16 @@ node src/index.ts                 # score the designs from the first public benc
 node src/index.ts --business      # which business models actually clear
 node src/index.ts --fulfilment    # one unit at a time vs batched production
 node src/index.ts --taxonomy      # the accumulated failure library
+node src/index.ts --parts ESP32   # search the curated part catalogue
+node src/index.ts --diff lamp-astra lamp-fable   # structural diff of two designs
 node src/index.ts --full lamp-astra
-node --test "tests/*.test.ts"     # 34 tests incl. the MCP transport
+node --test "tests/*.test.ts"     # 57 tests incl. the MCP transport
 node src/mcp/server.ts            # MCP server (stdio)
 ```
 
-**10 hard gates · 36 DFM rules · 16 failure modes · 14 MCP tools** — and `node --test` fails if the rule
-catalogue and the implementation drift apart, because five rules once existed only in the docs.
+**10 hard gates · 36 DFM rules · 16 failure modes · 18 MCP tools · 30+ curated parts** — and `node --test`
+fails if the rule catalogue and the implementation drift apart, because five rules once existed only
+in the docs.
 
 What it catches today, on real published designs:
 
@@ -103,8 +106,13 @@ A Hugging Face-style hub for hardware, deployed entirely on Cloudflare (Next.js 
 KV, Workers AI). MIT licensed, one-click self-hostable.
 
 - **Generate** — prompt → design spec (BOM, wiring, assembly guide) → scored by the same harness →
-  public gallery. Workers AI free tier, no API keys.
+  public gallery. Workers AI free tier, no API keys. Starter templates included.
 - **Explore** — every design is public and remixable, Midjourney-style: show people what's possible.
+  Searchable, filterable by gate verdict.
+- **Compare** — the what-changed behind every remix: score delta, gates flipped, parts moved, cost moved.
+- **Parts** — the curated catalogue: real MPNs, typical prices, channels, alternates, counterfeit risk.
+- **Design pages** — exploded model preview, gates, scorecard, cost curve, BOM with live quotes,
+  printable assembly guide, one-tap spec/BOM exports.
 - **Kits** — open-source projects with prebuilt-kit paths. Flagship: Petoi's OpenCat/Bittle — open
   everything, sell the verified kit. The model for the eventual robotics line.
 - **Leaderboard + agent API** — `POST /api/designs` is push-to-hub for agents; as they adopt it, the
@@ -114,6 +122,7 @@ KV, Workers AI). MIT licensed, one-click self-hostable.
 cd web
 npm install --include=dev
 npm run harness:verify   # prove the bundled engine scores identically to this CLI
+npm test                 # BOM CSV, receipts, slugs, bundled-engine surface
 npm run dev
 ```
 

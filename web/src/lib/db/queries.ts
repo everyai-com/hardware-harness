@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/d1";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { getEnv } from "@/lib/cf";
 import { designs, kits, votes, outcomes } from "./schema";
 
@@ -62,25 +62,57 @@ export interface DesignPage {
   hasMore: boolean;
 }
 
-export async function listDesigns(sort: Sort = "new", limit = PAGE_SIZE, offset = 0): Promise<DesignRow[]> {
+export interface DesignFilters {
+  /** Free-text match against title and prompt. */
+  q?: string;
+  /** Only designs that passed (or failed) every build gate. */
+  gates?: "pass" | "fail";
+}
+
+function filterConditions(filters: DesignFilters = {}) {
+  const conditions = [eq(designs.isPublic, true)];
+  const q = filters.q?.trim();
+  if (q) {
+    // LIKE wildcards in the query are escaped: a search for "%" must match a
+    // literal percent, not every row in the table.
+    const escaped = q.replace(/[%_\\]/g, (c) => `\\${c}`);
+    const pattern = `%${escaped}%`;
+    conditions.push(or(like(designs.title, pattern), like(designs.prompt, pattern))!);
+  }
+  if (filters.gates === "pass") conditions.push(eq(designs.gatesPassed, true));
+  else if (filters.gates === "fail") conditions.push(eq(designs.gatesPassed, false));
+  return and(...conditions);
+}
+
+export async function listDesigns(
+  sort: Sort = "new",
+  limit = PAGE_SIZE,
+  offset = 0,
+  filters: DesignFilters = {},
+): Promise<DesignRow[]> {
   const order =
     sort === "score" ? desc(designs.scoreTotal) : sort === "likes" ? desc(designs.likes) : desc(designs.createdAt);
   return db()
     .select()
     .from(designs)
-    .where(eq(designs.isPublic, true))
+    .where(filterConditions(filters))
     .orderBy(order)
     .limit(Math.min(Math.max(limit, 1), MAX_PAGE_SIZE))
     .offset(Math.max(offset, 0));
 }
 
 /** One page of the gallery, with the total so the UI can paginate instead of truncating silently. */
-export async function pageDesigns(sort: Sort = "new", page = 1, pageSize = PAGE_SIZE): Promise<DesignPage> {
+export async function pageDesigns(
+  sort: Sort = "new",
+  page = 1,
+  pageSize = PAGE_SIZE,
+  filters: DesignFilters = {},
+): Promise<DesignPage> {
   const size = Math.min(Math.max(pageSize, 1), MAX_PAGE_SIZE);
   const safePage = Math.max(Math.floor(page) || 1, 1);
   const [rows, total] = await Promise.all([
-    listDesigns(sort, size, (safePage - 1) * size),
-    countDesigns(),
+    listDesigns(sort, size, (safePage - 1) * size, filters),
+    countDesigns(filters),
   ]);
   return { designs: rows, total, page: safePage, pageSize: size, hasMore: safePage * size < total };
 }
@@ -137,11 +169,11 @@ export async function hasVoted(designId: string, voterHash: string): Promise<boo
 }
 
 /** Public designs only — the home page should not advertise drafts. */
-export async function countDesigns(): Promise<number> {
+export async function countDesigns(filters: DesignFilters = {}): Promise<number> {
   const rows = await db()
     .select({ n: sql<number>`count(*)` })
     .from(designs)
-    .where(eq(designs.isPublic, true));
+    .where(filterConditions(filters));
   return Number(rows[0]?.n ?? 0);
 }
 

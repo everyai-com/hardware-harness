@@ -46,6 +46,8 @@ export const viewport: Viewport = {
 const NAV = [
   { href: "/generate", label: "Generate" },
   { href: "/explore", label: "Explore" },
+  { href: "/compare", label: "Compare" },
+  { href: "/parts", label: "Parts" },
   { href: "/builds", label: "Receipts" },
   { href: "/kits", label: "Kits" },
   { href: "/leaderboard", label: "Leaderboard" },

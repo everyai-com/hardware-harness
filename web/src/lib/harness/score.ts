@@ -14,6 +14,17 @@ export {
   HIDDEN_COSTS,
   FAILURE_TAXONOMY,
   failuresForRule,
+  diffSpecs,
+  validateOutcome,
+  compareOutcomeToEstimate,
+  calibrateFromOutcomes,
+  recordOutcome,
+  CALIBRATION_TOLERANCE_PCT,
+  PART_CATALOGUE,
+  lookupPart,
+  partByMpn,
+  suggestAlternates,
+  catalogueStats,
 } from "./engine.mjs";
 
 export type {
@@ -23,6 +34,14 @@ export type {
   CertRequirement,
   FailureMode,
   Finding,
+  SpecDiff,
+  PartChange,
+  GateFlip,
+  CostDelta,
+  ValidatedOutcome,
+  EstimateVsActual,
+  Calibration,
+  CatalogPart,
 } from "./engine.mjs";
 
 /**
