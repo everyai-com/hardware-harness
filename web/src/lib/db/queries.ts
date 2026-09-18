@@ -37,6 +37,47 @@ export async function listRemixes(ofId: string): Promise<DesignRow[]> {
   return db().select().from(designs).where(eq(designs.remixOf, ofId)).orderBy(desc(designs.createdAt)).limit(20);
 }
 
+export type ModelStanding = {
+  generator: string;
+  designs: number;
+  avgScore: number;
+  bestScore: number;
+  passed: number;
+  likes: number;
+};
+
+const GENERATOR = sql<string>`coalesce(${designs.modelUsed}, ${designs.producedBy}, ${designs.author}, 'unknown')`;
+
+/**
+ * Standings by generator. As agents adopt POST /api/designs, this stops being a
+ * ranking of designs and becomes a ranking of the models that produced them —
+ * which is the number the labs actually want.
+ */
+export async function listModelStandings(): Promise<ModelStanding[]> {
+  const rows = await db()
+    .select({
+      generator: GENERATOR,
+      designs: sql<number>`count(*)`,
+      avgScore: sql<number>`avg(${designs.scoreTotal})`,
+      bestScore: sql<number>`max(${designs.scoreTotal})`,
+      passed: sql<number>`sum(case when ${designs.gatesPassed} then 1 else 0 end)`,
+      likes: sql<number>`sum(${designs.likes})`,
+    })
+    .from(designs)
+    .where(eq(designs.isPublic, true))
+    .groupBy(GENERATOR)
+    .orderBy(sql`avg(${designs.scoreTotal}) desc`);
+
+  return rows.map((r) => ({
+    generator: r.generator,
+    designs: Number(r.designs),
+    avgScore: Number(r.avgScore),
+    bestScore: Number(r.bestScore),
+    passed: Number(r.passed),
+    likes: Number(r.likes),
+  }));
+}
+
 export async function listKits(): Promise<KitRow[]> {
   return db().select().from(kits).orderBy(kits.sortOrder);
 }

@@ -21,7 +21,7 @@ export default async function HomePage() {
         <p className="max-w-2xl text-lg text-muted">
           Describe a thing, get a buildable design — BOM, wiring, assembly guide, and a landed cost
           table nobody else publishes. Every design is scored by the LuxoBench harness: DFM rules,
-          nine build gates, and the invisible lines (tooling, duty, certification) that generated
+          ten build gates, and the invisible lines (tooling, duty, certification) that generated
           BOMs always leave out.
         </p>
         <div className="flex flex-wrap items-center gap-4">

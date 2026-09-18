@@ -75,11 +75,12 @@ node src/index.ts --business      # which business models actually clear
 node src/index.ts --fulfilment    # one unit at a time vs batched production
 node src/index.ts --taxonomy      # the accumulated failure library
 node src/index.ts --full lamp-astra
-node --test "tests/*.test.ts"     # 14 tests incl. the MCP transport
+node src/index.ts --json           # the whole run as machine-readable JSON
+node --test "tests/*.test.ts"     # 27 tests incl. the MCP transport
 node src/mcp/server.ts            # MCP server (stdio)
 ```
 
-**10 hard gates · 36 DFM rules · 16 failure modes · 14 MCP tools.**
+**10 hard gates · 39 DFM rules · 16 failure modes · 15 MCP tools.**
 
 What it catches today, on real published designs:
 

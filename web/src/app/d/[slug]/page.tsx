@@ -12,18 +12,29 @@ import { LikeButton } from "@/components/like-button";
 import { Gates, Metrics, Scorecard, CostTable, Findings } from "@/components/report-view";
 import { SpecView } from "@/components/spec-view";
 import { OutcomeLog } from "@/components/outcome-log";
+import { OutcomeForm } from "@/components/outcome-form";
 
 export const dynamic = "force-dynamic";
+
+/** score_json comes from the engine; guard so a row with an older shape can't 500 the page. */
+function blockCountOf(scoreJson: string): number {
+  try {
+    return (JSON.parse(scoreJson) as EvaluationReport).metrics?.blockCount ?? 0;
+  } catch {
+    return 0;
+  }
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const design = await getDesign(slug);
   if (!design) return { title: "Not found — LUXO" };
+  const blocks = blockCountOf(design.scoreJson);
   return {
     title: `${design.title} — ${design.scoreTotal.toFixed(2)}/5 ${design.gatesPassed ? "PASS" : "FAIL"} — LUXO`,
     description: design.gatesPassed
       ? `Passed all LuxoBench build gates. Scored by the harness: DFM, landed cost, assembly.`
-      : `Failed ${JSON.parse(design.scoreJson).metrics.blockCount} build gates. Scored by the harness: DFM, landed cost, assembly.`,
+      : `Failed ${blocks} build gate${blocks === 1 ? "" : "s"}. Scored by the harness: DFM, landed cost, assembly.`,
   };
 }
 
@@ -108,7 +119,9 @@ export default async function DesignPage({ params }: { params: Promise<{ slug: s
       <CostTable report={report} />
       <Findings report={report} />
       <SpecView spec={spec} quotes={quotes} />
-      <OutcomeLog outcomes={outcomes} />
+      <OutcomeLog outcomes={outcomes}>
+        <OutcomeForm designId={design.id} />
+      </OutcomeLog>
 
       {(original || remixes.length > 0) && (
         <section className="rounded-xl border border-line bg-card p-5">

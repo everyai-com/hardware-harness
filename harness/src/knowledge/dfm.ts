@@ -52,7 +52,10 @@ export type RuleId =
   | 'LIBRARIES_UNPINNED'
   | 'FIRMWARE_UNTESTED'
   | 'NO_NETS'
-  | 'NET_UNKNOWN_PART';
+  | 'NET_UNKNOWN_PART'
+  | 'DROP_TEST_AT_RISK'
+  | 'GEOMETRY_NOT_WATERTIGHT'
+  | 'GEOMETRY_MISMATCH';
 
 export const RULES: Record<RuleId, RuleDef> = {
   WALL_TOO_THIN: {
@@ -307,6 +310,33 @@ export const RULES: Record<RuleId, RuleDef> = {
     rationale: 'Everyone publishes designs. Nobody publishes cost. It is the first thing buyers ask.',
     evidence: '23 cost questions, 0 answers on the viral thread; cost is first on Keil\'s own rubric',
   },
+  DROP_TEST_AT_RISK: {
+    id: 'DROP_TEST_AT_RISK',
+    severity: 'warn',
+    title: 'Drop impact exceeds what this enclosure is expected to survive',
+    rationale:
+      'A product that cracks when it falls off a desk is a return, a review and a remake. It is also the acceptance test every reviewer asks about and no generated design answers.',
+    evidence:
+      'Cube lamp acceptance criteria (fixtures/lamp.ts): drop from 1m in 3 orientations. Thresholds are order-of-magnitude figures derived from published Izod/Charpy impact strengths - brittle acrylics and standard SLA resin fail first, polyolefins and nylon take roughly 5x more, aluminium is not the limiting part. A screen for "obviously fragile", not FEA.',
+  },
+  GEOMETRY_NOT_WATERTIGHT: {
+    id: 'GEOMETRY_NOT_WATERTIGHT',
+    severity: 'block',
+    title: 'The mesh is not watertight',
+    rationale:
+      'An open or non-manifold mesh is not a solid. A slicer or CAM tool either refuses it or silently patches it, and a silent patch is a mystery failure later. Repairing it by hand is exactly the manual work the CAD gate forbids.',
+    evidence:
+      'STL edge-manifold check: on a closed surface every edge is shared by exactly two triangles. Same class as the "CAD opens clean - no manual repair" gate.',
+  },
+  GEOMETRY_MISMATCH: {
+    id: 'GEOMETRY_MISMATCH',
+    severity: 'warn',
+    title: 'Measured geometry disagrees with the declared geometry',
+    rationale:
+      'The spec is what the cost model and every DFM check read. When the mesh says something else, one of the two is wrong, and every downstream number is wrong with it.',
+    evidence:
+      'Measured from the mesh (bounding box and enclosed volume) versus the declared bboxMm and solidFraction in the spec.',
+  },
 };
 
 export interface Material {
@@ -332,4 +362,27 @@ export const MATERIALS: Record<string, Material> = {
   silicone: { id: 'silicone', label: 'Silicone (cast/moulded)', minWallMm: 1.0, shrink: 0.0, densityGPerCm3: 1.15, costPerKgUsd: [18, 40], notes: ['Diffuser and grip material; needs its own mould.'] },
   tpu: { id: 'tpu', label: 'TPU', minWallMm: 1.0, shrink: 0.008, densityGPerCm3: 1.21, costPerKgUsd: [25, 45], notes: ['Flexible printed parts; slow to print.'] },
   alu6061: { id: 'alu6061', label: 'Aluminium 6061', minWallMm: 0.8, shrink: 0.0, densityGPerCm3: 2.7, costPerKgUsd: [5, 12], notes: ['Machined finish reads as premium. Anodising is a separate line item.'] },
+};
+
+/**
+ * Drop screening: the energy, in joules, at which an enclosure made of this
+ * material is expected to crack. Order-of-magnitude figures derived from
+ * published Izod/Charpy impact strengths, not FEA.
+ *
+ * Standard SLA resin and acrylic are brittle and fail first; polyolefins, nylon
+ * and polycarbonate absorb roughly 4-6x more; aluminium is rarely the part that
+ * breaks. Anything not listed falls back to DEFAULT_IMPACT_J in dfm-check.ts.
+ */
+export const IMPACT_SCREENING: Record<string, number> = {
+  resin_std: 1.0,
+  pla: 1.2,
+  pmma: 1.5,
+  abs: 3.5,
+  petg: 4.0,
+  pp: 5.0,
+  pc: 6.0,
+  pa12: 6.0,
+  tpu: 10.0,
+  silicone: 12.0,
+  alu6061: 30.0,
 };

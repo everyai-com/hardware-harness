@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { generateAction, clarifyAction, type GenerateState } from "./actions";
 
 const EXAMPLES = [
@@ -23,6 +23,7 @@ export default function GenerateForm({
   const [clarifying, setClarifying] = useState(false);
   const [questions, setQuestions] = useState<string[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
+  const promptRef = useRef<HTMLTextAreaElement>(null);
 
   function submit(finalPrompt: string) {
     startTransition(async () => {
@@ -48,7 +49,7 @@ export default function GenerateForm({
   }
 
   async function askQuestions() {
-    const prompt = (document.querySelector('textarea[name="prompt"]') as HTMLTextAreaElement | null)?.value ?? "";
+    const prompt = promptRef.current?.value ?? "";
     if (prompt.trim().length < 5) {
       setState({ error: "Describe the idea first, then ask for clarifying questions." });
       return;
@@ -73,6 +74,7 @@ export default function GenerateForm({
         <input type="hidden" name="remixOf" value={remixOf ?? ""} />
         <textarea
           name="prompt"
+          ref={promptRef}
           rows={4}
           defaultValue={defaultPrompt}
           placeholder="Describe what you want to build…"
@@ -128,9 +130,19 @@ export default function GenerateForm({
         <p className="text-sm text-muted">Need a starting point?</p>
         <div className="flex flex-col gap-2">
           {EXAMPLES.map((e) => (
-            <p key={e} className="rounded-lg border border-line bg-card px-4 py-2 text-sm text-muted">
+            <button
+              key={e}
+              type="button"
+              onClick={() => {
+                if (promptRef.current) {
+                  promptRef.current.value = e;
+                  promptRef.current.focus();
+                }
+              }}
+              className="rounded-lg border border-line bg-card px-4 py-2 text-left text-sm text-muted transition-colors hover:border-accent hover:text-foreground"
+            >
               {e}
-            </p>
+            </button>
           ))}
         </div>
       </div>
