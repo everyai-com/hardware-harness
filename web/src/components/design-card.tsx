@@ -19,6 +19,14 @@ export function DesignCard({ design }: { design: DesignRow }) {
       href={`/d/${design.id}`}
       className="flex flex-col rounded-xl border border-line bg-card p-5 transition-colors hover:border-accent"
     >
+      <img
+        src={`/api/render/${design.id}`}
+        alt={`${design.title} — AI reference render`}
+        width={1024}
+        height={768}
+        loading="lazy"
+        className="mb-4 aspect-[4/3] w-full rounded-lg border border-line bg-background object-cover"
+      />
       <div className="flex items-start justify-between gap-3">
         <h3 className="font-semibold leading-snug">{design.title}</h3>
         <ScoreBadge total={design.scoreTotal} gates={design.gatesPassed} />

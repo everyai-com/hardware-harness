@@ -115,7 +115,7 @@ export default function GenerateForm({
             {clarifying ? "Thinking…" : questions.length > 0 ? "Ask again" : "Ask clarifying questions"}
           </button>
           <span className="font-mono text-xs text-muted">
-            llama-3.3-70b via Workers AI · scored by the same engine as the CLI · 10/day
+            GLM-5.3 Flash via Workers AI · scored by the same engine as the CLI · 10/day
           </span>
         </div>
       </form>

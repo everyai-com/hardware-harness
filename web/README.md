@@ -24,7 +24,8 @@ them to a public gallery, and browse open-source kits. Deployed entirely on Clou
 |---|---|
 | App | Next.js (App Router) on **Workers** via `@opennextjs/cloudflare` |
 | DB | **D1** + drizzle-orm |
-| Generation LLM | **Workers AI** (`AI_MODEL` var, default `@cf/meta/llama-3.3-70b-instruct-fp8-fast`) |
+| Generation LLM | **Workers AI** (`AI_MODEL` var, default `@cf/zai-org/glm-5.3-flash`) |
+| Reference renders | **Workers AI** text-to-image (`AI_IMAGE_MODEL` var, default `@cf/black-forest-labs/flux-2-klein-9b`) → **R2** |
 | Files | **R2** |
 | Cache / rate limits | **KV** |
 

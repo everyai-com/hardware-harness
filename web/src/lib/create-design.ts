@@ -3,6 +3,7 @@ import type { ProductSpec } from "@/lib/harness/score";
 import type { SpecInput } from "@/lib/spec-schema";
 import { slugFor } from "@/lib/slug";
 import { insertDesign } from "@/lib/db/queries";
+import { ensureRender } from "@/lib/render";
 
 export type CreatedDesign = { slug: string; scoreTotal: number; gatesPassed: boolean };
 
@@ -41,6 +42,15 @@ export async function createDesign(opts: {
     isPublic: true,
     createdAt: new Date().toISOString(),
   });
+
+  // Best-effort reference render. Publishing and scoring must never fail because
+  // image generation did — the render route regenerates on demand if this misses.
+  try {
+    const rendered = await ensureRender(slug, spec);
+    if ("error" in rendered) console.error("render generation failed:", rendered.error);
+  } catch (e) {
+    console.error("render generation failed:", e instanceof Error ? e.message : e);
+  }
 
   return { slug, scoreTotal: report.score.total, gatesPassed: report.gates.passed };
 }

@@ -85,6 +85,19 @@ export default async function DesignPage({ params }: { params: Promise<{ slug: s
         </div>
       </header>
 
+      <figure className="space-y-2">
+        <img
+          src={`/api/render/${design.id}`}
+          alt={`${design.title} — AI reference render`}
+          width={1024}
+          height={768}
+          className="aspect-[4/3] w-full rounded-xl border border-line bg-card object-cover"
+        />
+        <figcaption className="text-xs text-muted">
+          AI reference render — what the design claims to be, not a photograph of a built unit.
+        </figcaption>
+      </figure>
+
       <Metrics report={report} />
 
       <div className="grid gap-6 lg:grid-cols-2">

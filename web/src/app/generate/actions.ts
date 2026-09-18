@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { getEnv, aiModel, rateLimit } from "@/lib/cf";
-import { generateSpec } from "@/lib/ai/generate";
+import { generateSpec, unwrapAiResponse } from "@/lib/ai/generate";
 import { createDesign } from "@/lib/create-design";
 
 export type GenerateState = { error: string | null };
@@ -54,11 +54,12 @@ export async function clarifyAction(prompt: string): Promise<{ questions: string
         },
         { role: "user", content: prompt.slice(0, 500) },
       ],
-      max_tokens: 300,
+      max_tokens: 800,
       temperature: 0.3,
-    })) as unknown;
+      reasoning_effort: "low",
+    } as never)) as unknown;
 
-    const resp = (out as { response?: unknown } | null)?.response ?? out;
+    const resp = unwrapAiResponse(out);
     const text = typeof resp === "string" ? resp : JSON.stringify(resp);
     const m = text.match(/\[[\s\S]*?\]/);
     if (!m) return { questions: [] };

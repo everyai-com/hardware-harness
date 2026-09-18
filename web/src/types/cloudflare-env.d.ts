@@ -11,6 +11,8 @@ declare global {
     ASSETS: Fetcher;
     /** Workers AI model id override — set as a Worker var/secret. */
     AI_MODEL?: string;
+    /** Workers AI text-to-image model id override for reference renders. */
+    AI_IMAGE_MODEL?: string;
   }
 }
 
