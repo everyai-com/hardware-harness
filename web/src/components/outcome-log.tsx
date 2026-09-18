@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { OutcomeRow } from "@/lib/db/queries";
 
 const KIND_BADGE: Record<string, string> = {
@@ -10,16 +11,18 @@ const KIND_BADGE: Record<string, string> = {
 /**
  * The score -> build -> ACTUALS log. Estimates are claims; these are receipts.
  */
-export function OutcomeLog({ outcomes }: { outcomes: OutcomeRow[] }) {
+export function OutcomeLog({ outcomes, children }: { outcomes: OutcomeRow[]; children?: ReactNode }) {
   return (
     <section className="rounded-xl border border-line bg-card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-semibold">Outcome log</h2>
       </div>
       <p className="mt-1 text-sm text-muted">
-        Reality recorded against this design — builds, live quotes, test results. Post yours via{" "}
+        Reality recorded against this design — builds, live quotes, test results. Add yours below,
+        or post it programmatically to{" "}
         <code className="font-mono text-xs text-accent">POST /api/designs/[id]/outcomes</code>.
       </p>
+      {children}
       {outcomes.length === 0 ? (
         <p className="mt-3 rounded-lg border border-dashed border-line px-4 py-3 text-sm text-muted">
           No outcomes recorded yet. The first person to build this design and post the actuals owns

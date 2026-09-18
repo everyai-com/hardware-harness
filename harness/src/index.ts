@@ -15,6 +15,9 @@ import { renderReport } from './engine/report.ts';
 import { FAILURE_TAXONOMY } from './knowledge/taxonomy.ts';
 import { compareModels } from './engine/business.ts';
 import { compareFulfilment } from './engine/fulfilment.ts';
+import { resolveQuotes } from './quotes/lcsc.ts';
+import { parseStl } from './geometry/stl.ts';
+import { readFileSync } from 'node:fs';
 
 /** Which blocking finding is the headline for each design. Most structural first. */
 const HEADLINE_PRIORITY = [
@@ -45,6 +48,37 @@ const wantJson = args.includes('--json');
 const taxonomy = args.includes('--taxonomy');
 const business = args.includes('--business');
 const fulfilment = args.includes('--fulfilment');
+const wantQuotes = args.includes('--quotes');
+const stlIdx = args.indexOf('--stl');
+
+// Measure a mesh instead of trusting a declaration.
+if (stlIdx >= 0) {
+  const file = args[stlIdx + 1];
+  if (!file) {
+    console.error('Usage: node src/index.ts --stl <file.stl>');
+    process.exit(1);
+  }
+  try {
+    const geometry = parseStl(readFileSync(file));
+    console.log(`# ${file}`);
+    console.log(`format: ${geometry.format}, triangles: ${geometry.triangles}, watertight: ${geometry.watertight}`);
+    console.log(
+      `bbox: ${geometry.bboxMm.x.toFixed(2)} x ${geometry.bboxMm.y.toFixed(2)} x ${geometry.bboxMm.z.toFixed(2)} mm`,
+    );
+    console.log(
+      `volume: ${(geometry.volumeMm3 / 1000).toFixed(2)} cm3, surface area: ${(geometry.surfaceAreaMm2 / 100).toFixed(2)} cm2`,
+    );
+    if (geometry.triangles === 0) {
+      console.log('\nNo triangles found - this does not look like an STL.');
+    } else if (!geometry.watertight) {
+      console.log('\nNot watertight - an open or non-manifold mesh is not a solid (see GEOMETRY_NOT_WATERTIGHT).');
+    }
+    process.exit(0);
+  } catch (e) {
+    console.error(`Could not read ${file}: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(1);
+  }
+}
 
 if (fulfilment) {
   const inputs = {
@@ -117,7 +151,27 @@ if (taxonomy) {
   process.exit(0);
 }
 
-const reports = FIXTURES.map((spec) => evaluate(spec));
+// Live quotes are opt-in and resolved before evaluation, so the engine stays
+// offline and every fixture still scores identically without --quotes.
+let specs = FIXTURES;
+if (wantQuotes) {
+  const resolved = await Promise.all(FIXTURES.map((spec) => resolveQuotes(spec)));
+  specs = resolved.map((r) => r.spec);
+  const applied = resolved.flatMap((r) => r.applied);
+  const missed = resolved.flatMap((r) => r.missed);
+  // stderr, so --json stays machine-readable.
+  console.error(
+    `# Live quotes: ${applied.length} part(s) re-priced from LCSC, ${missed.length} left on the harness estimate.`,
+  );
+  for (const a of applied) {
+    const matched = a.matchedMpn && a.matchedMpn !== a.mpn ? ` (matched ${a.matchedMpn})` : '';
+    console.error(`  - ${a.partId} (${a.mpn})${matched}: $${a.previousUsd} -> $${a.quotedUsd}`);
+  }
+  for (const m of missed) console.error(`  - ${m.partId} (${m.mpn}): ${m.reason}`);
+  console.error('');
+}
+
+const reports = specs.map((spec) => evaluate(spec));
 
 if (wantJson) {
   console.log(JSON.stringify(reports, null, 2));

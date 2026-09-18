@@ -24,7 +24,8 @@ them to a public gallery, and browse open-source kits. Deployed entirely on Clou
 |---|---|
 | App | Next.js (App Router) on **Workers** via `@opennextjs/cloudflare` |
 | DB | **D1** + drizzle-orm |
-| Generation LLM | **Workers AI** (`AI_MODEL` var, default `@cf/meta/llama-3.3-70b-instruct-fp8-fast`) |
+| Generation LLM | **Workers AI** (`AI_MODEL` var, default `@cf/zai-org/glm-5.3-flash`) |
+| Reference renders | **Workers AI** text-to-image (`AI_IMAGE_MODEL` var, default `@cf/black-forest-labs/flux-2-klein-9b`) → **R2** |
 | Files | **R2** |
 | Cache / rate limits | **KV** |
 
@@ -79,6 +80,11 @@ plan (10 MiB) is the safe default.
 - `POST /api/designs` — spec JSON → scored + published to the gallery ("push to hub").
 - `GET /api/designs?sort=new|score|likes` — the gallery as JSON.
 - `GET /api/designs/[id]` — one design's spec + report + lineage.
+- `GET|POST /api/designs/[id]/outcomes` — the score → build → ACTUALS log: record what a
+  design really cost, whether it powered on, what failed. Also a form on the design page.
+- `GET /api/quote?mpn=` — a live LCSC quote, via JLCPCB's parts API (the `wapi.lcsc.com` host the
+  first version used no longer resolves). Cached in KV; `null` when nothing matches confidently.
+- `GET /api/render/[slug]` — the design's AI reference render, generated once and cached in R2.
 - `POST /api/like` — one vote per visitor.
 
 Docs with curl examples: `/api-docs`. The same engine is also an MCP server

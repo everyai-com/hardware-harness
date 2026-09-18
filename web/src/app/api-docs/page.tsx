@@ -60,6 +60,37 @@ const ENDPOINTS = [
     body: `{ "id": "lamp-astra" }`,
     returns: "{ likes, voted } — one vote per visitor.",
   },
+  {
+    method: "GET",
+    path: "/api/designs/[id]/outcomes",
+    returns:
+      "The recorded reality for a design: builds, live quotes, test results, notes, with author and date.",
+  },
+  {
+    method: "POST",
+    path: "/api/designs/[id]/outcomes",
+    body: `{
+  "kind": "build",
+  "summary": "Printed in PETG, 41 min to assemble, powered on first try, $27.10 in parts",
+  "data": { "partsUsd": 27.1, "assemblyMinutes": 41, "poweredOn": true },
+  "author": "someone-who-actually-built-it"
+}`,
+    returns:
+      "201 with the stored record. This is the score -> build -> ACTUALS loop — the outcome data that sharpens the cost model. Also available in the design page UI.",
+  },
+  {
+    method: "GET",
+    path: "/api/quote",
+    query: "?mpn=<part number>",
+    returns:
+      "A live LCSC quote for one manufacturer part number (price tiers, stock, lead time). Cached in KV; null when LCSC has no record.",
+  },
+  {
+    method: "GET",
+    path: "/api/render/[slug]",
+    returns:
+      "The design's AI reference render (image/jpeg, 1024x768). Generated on first request with Workers AI text-to-image and then served from R2 with immutable caching.",
+  },
 ];
 
 export default function ApiDocsPage() {

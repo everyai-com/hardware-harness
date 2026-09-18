@@ -8,10 +8,15 @@ export function getEnv(): CloudflareEnv {
   return getCloudflareContext().env;
 }
 
-const DEFAULT_AI_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const DEFAULT_AI_MODEL = "@cf/zai-org/glm-5.3-flash";
+const DEFAULT_IMAGE_MODEL = "@cf/black-forest-labs/flux-2-klein-9b";
 
 export function aiModel(): string {
   return getEnv().AI_MODEL ?? DEFAULT_AI_MODEL;
+}
+
+export function imageModel(): string {
+  return getEnv().AI_IMAGE_MODEL ?? DEFAULT_IMAGE_MODEL;
 }
 
 export async function rateLimit(keyPrefix: string, limit: number): Promise<boolean> {

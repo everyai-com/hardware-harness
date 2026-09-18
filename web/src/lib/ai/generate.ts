@@ -1,8 +1,6 @@
 import { getEnv, aiModel } from "@/lib/cf";
 import { specSchema, type SpecInput } from "@/lib/spec-schema";
 
-const DEFAULT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-
 const SYSTEM_PROMPT = `You are the LUXO hardware design generator — the open-source alternative to Blueprint.io.
 Given a product idea, output a single JSON object (no prose, no markdown fences) describing a buildable low-volume design.
 
@@ -51,14 +49,36 @@ function extractJson(text: string | undefined | null): unknown {
 }
 
 /**
- * Workers AI chat models return `{ response: string }`, but some models and
- * streaming-ish variants hand back arrays of parts or nested objects. Normalise
- * them all to one string.
+ * Workers AI wraps generations differently per model family:
+ *  - OpenAI-compatible chat (GLM, DeepSeek, …): `{ choices: [{ message: { content } }] }`
+ *  - legacy chat template: `{ response: string }`
+ *  - streaming-ish variants: an array of parts
+ * Normalise all of them to the innermost payload, usually a string of text.
+ */
+export function unwrapAiResponse(out: unknown): unknown {
+  if (out && typeof out === "object" && !Array.isArray(out)) {
+    const o = out as Record<string, unknown>;
+    const choices = o.choices;
+    if (Array.isArray(choices) && choices.length > 0) {
+      const message = (choices[0] as { message?: unknown } | undefined)?.message;
+      if (message && typeof message === "object") {
+        const content = (message as Record<string, unknown>).content;
+        if (typeof content === "string") return content;
+      }
+    }
+    if ("response" in o) return o.response;
+  }
+  return out;
+}
+
+/**
+ * Normalise any Workers AI response shape to a single string of text.
  */
 function extractText(response: unknown): string | null {
-  if (typeof response === "string") return response;
-  if (Array.isArray(response)) {
-    return response
+  const payload = unwrapAiResponse(response);
+  if (typeof payload === "string") return payload;
+  if (Array.isArray(payload)) {
+    return payload
       .map((p) => {
         if (typeof p === "string") return p;
         if (p && typeof p === "object") {
@@ -70,8 +90,8 @@ function extractText(response: unknown): string | null {
       })
       .join("");
   }
-  if (response && typeof response === "object") {
-    const r = response as Record<string, unknown>;
+  if (payload && typeof payload === "object") {
+    const r = payload as Record<string, unknown>;
     if (typeof r.response === "string") return r.response;
     if (typeof r.text === "string") return r.text;
     if (typeof r.content === "string") return r.content;
@@ -83,7 +103,7 @@ type AiResult = { spec: SpecInput; model: string } | { error: string };
 
 export async function generateSpec(prompt: string): Promise<AiResult> {
   const env = getEnv();
-  const model = aiModel() ?? DEFAULT_MODEL;
+  const model = aiModel();
   const messages: ChatMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     { role: "user", content: prompt },
@@ -95,16 +115,19 @@ export async function generateSpec(prompt: string): Promise<AiResult> {
     try {
       out = await env.AI.run(model, {
         messages,
-        max_tokens: 4096,
+        max_tokens: 8192,
         temperature: 0.4,
-      });
+        // GLM-5.3 is a reasoning model whose effort defaults to "max"; left there
+        // the thinking budget can consume the whole reply and content comes back empty.
+        reasoning_effort: "low",
+      } as never);
     } catch (e) {
       return { error: `Workers AI call failed: ${e instanceof Error ? e.message : String(e)}` };
     }
 
-    // The chat wrapper returns { response }, where response may be the raw text
-    // OR — when the model emits clean JSON — the parsed spec object itself.
-    const resp = (out as { response?: unknown } | null)?.response ?? out;
+    // The response envelope differs per model family — unwrap it to the raw text
+    // (or, when a model emits clean JSON, the parsed object itself).
+    const resp = unwrapAiResponse(out);
     const candidate =
       typeof resp === "string"
         ? extractJson(resp)

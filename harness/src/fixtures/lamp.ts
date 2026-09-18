@@ -94,6 +94,10 @@ export function emptyLampSpec(producedBy: string): ProductSpec {
     interfaces: [],
     operations: [],
     certificationsBudgeted: ['fcc_unintentional'],
+    dropTest: {
+      heightM: LAMP_ACCEPTANCE_CRITERIA.mechanical.dropTestHeightM,
+      orientations: LAMP_ACCEPTANCE_CRITERIA.mechanical.dropTestOrientations,
+    },
     producedBy,
   };
 }

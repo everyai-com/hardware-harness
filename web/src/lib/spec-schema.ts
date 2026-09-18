@@ -19,6 +19,7 @@ export const PROCESSES = [
   "pcb_assembly",
   "soft_tool",
   "injection_molding",
+  "injection_molding_multicavity",
 ] as const;
 export const PART_TYPES = [
   "mcu",
@@ -131,6 +132,16 @@ const partSchema = z.object({
   supportsTouchVisibleFace: z.boolean().optional(),
   source: catalogSourceSchema.optional(),
   purchasePriceUsd: num.nonnegative().optional(),
+  /** Geometry measured from a real mesh — see harness/src/geometry/stl.ts. */
+  measured: z
+    .object({
+      source: z.string().min(1),
+      bboxMm: bboxSchema,
+      volumeMm3: num.nonnegative(),
+      watertight: z.boolean(),
+      triangles: int.nonnegative(),
+    })
+    .optional(),
   notes: z.array(z.string()).optional(),
 });
 
@@ -206,6 +217,12 @@ const cadSchema = z.object({
   drcClean: z.boolean().optional(),
 });
 
+const dropTestSchema = z.object({
+  heightM: num.positive().optional(),
+  orientations: int.positive().optional(),
+  mitigation: z.array(z.string()).optional(),
+});
+
 export const specSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1),
@@ -231,6 +248,7 @@ export const specSchema = z.object({
   costDisclosed: z.boolean().optional(),
   firmware: firmwareSchema.optional(),
   cad: cadSchema.optional(),
+  dropTest: dropTestSchema.optional(),
   producedBy: z.string().optional(),
   provenance: z.string().optional(),
 });

@@ -14,6 +14,7 @@ import { checkDFM, requiredCertifications, estimateAssemblyMinutes } from '../en
 import { landedCost } from '../engine/cost.ts';
 import { recommendProcess } from '../engine/process-select.ts';
 import { renderReport } from '../engine/report.ts';
+import { appendFileSync } from 'node:fs';
 import { FAILURE_TAXONOMY } from '../knowledge/taxonomy.ts';
 import { PROCESSES } from '../knowledge/processes.ts';
 import { MATERIALS, RULES } from '../knowledge/dfm.ts';
@@ -246,6 +247,64 @@ const TOOLS: ToolDef[] = [
         imported: a.imported !== false,
       };
       return { single: evaluateFulfilment(inputs, 1), batched: evaluateFulfilment(inputs, inputs.batchSize) };
+    },
+  },
+  {
+    name: 'hardware_record_outcome',
+    description:
+      'Record what a design ACTUALLY cost to build, whether it powered on, and what failed. Estimates are claims; this is the receipt. Appends an append-only JSONL record locally and returns the exact request to publish it to a LUXO deployment, which is what turns the ±40% cost estimate into ±10%.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        designId: { type: 'string', description: 'The design this outcome belongs to, e.g. "lamp-astra".' },
+        kind: { type: 'string', enum: ['build', 'quote', 'test', 'note'] },
+        summary: { type: 'string', description: 'What actually happened, in a sentence or two.' },
+        data: {
+          type: 'object',
+          description:
+            'Structured numbers where you have them: partsUsd, assemblyMinutes, poweredOn, lux, tempC, dropResult, defects.',
+        },
+        author: { type: 'string' },
+        path: {
+          type: 'string',
+          description: 'Where to append. Defaults to $LUXO_OUTCOMES_FILE, else ./outcomes.jsonl',
+        },
+      },
+      required: ['designId', 'kind', 'summary'],
+    },
+    handler: (args) => {
+      const kinds = ['build', 'quote', 'test', 'note'];
+      const kind = String(args.kind ?? '');
+      if (!kinds.includes(kind)) {
+        throw new Error(`"kind" must be one of ${kinds.join(' | ')}.`);
+      }
+      const designId = String(args.designId ?? '').trim();
+      if (!designId) throw new Error('"designId" is required.');
+      const summary = String(args.summary ?? '').trim();
+      if (!summary) throw new Error('"summary" must be a non-empty string.');
+
+      const record = {
+        designId,
+        kind,
+        summary,
+        data: args.data ?? null,
+        author: typeof args.author === 'string' && args.author.trim() ? args.author.trim() : 'anonymous',
+        recordedAt: new Date().toISOString(),
+      };
+
+      const file =
+        typeof args.path === 'string' && args.path.trim()
+          ? args.path.trim()
+          : (process.env.LUXO_OUTCOMES_FILE ?? 'outcomes.jsonl');
+      appendFileSync(file, JSON.stringify(record) + '\n');
+
+      const body = { kind, summary, data: record.data, author: record.author };
+      return {
+        recorded: record,
+        file,
+        publishToLuxo: `curl -s -X POST "<your-luxo-url>/api/designs/${designId}/outcomes" -H 'content-type: application/json' -d '${JSON.stringify(body)}'`,
+        note: 'The record is durable locally. Publishing it to a LUXO deployment is what feeds the shared dataset.',
+      };
     },
   },
   {

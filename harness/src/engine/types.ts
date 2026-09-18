@@ -99,6 +99,18 @@ export interface Part {
   maxOverhangDeg?: number;
   /** Does this part need support material on a declared visible face? */
   supportsTouchVisibleFace?: boolean;
+  /**
+   * Geometry measured from a real mesh (see geometry/stl.ts). When present it
+   * replaces the declared bbox/solidFraction for volume, and any disagreement
+   * with the declaration is raised as a finding.
+   */
+  measured?: {
+    source: string;
+    bboxMm: { x: number; y: number; z: number };
+    volumeMm3: number;
+    watertight: boolean;
+    triangles: number;
+  };
   notes?: string[];
 }
 
@@ -218,9 +230,24 @@ export interface ProductSpec {
   producedBy?: string;
   /** Free-form provenance: URL, date, notes. */
   provenance?: string;
+  /**
+   * Impact screening. Absent means the design declares no drop requirement, and
+   * nothing is checked. This is an order-of-magnitude screen, not FEA - see
+   * IMPACT_SCREENING in knowledge/dfm.ts.
+   */
+  dropTest?: {
+    /** Drop height, metres. Default 1 (waist-high table). */
+    heightM?: number;
+    /** Orientations tested. Default 3. More orientations means the weak axis gets hit. */
+    orientations?: number;
+    /** Compliant features that absorb impact: 'rubber_feet', 'bumper', 'compliant_corners'. */
+    mitigation?: string[];
+  };
 }
 
 export function partVolumeCm3(part: Part): number {
+  // Measured beats declared: if a mesh was parsed, that volume is the real solid.
+  if (part.measured && part.measured.volumeMm3 > 0) return part.measured.volumeMm3 / 1000;
   const frac = part.solidFraction ?? 0.25;
   return (part.bboxMm.x * part.bboxMm.y * part.bboxMm.z) / 1000 * frac;
 }

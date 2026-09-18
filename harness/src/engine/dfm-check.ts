@@ -5,7 +5,7 @@
  * matters, how to fix it, and which real-world failure it corresponds to.
  */
 
-import { MATERIALS, RULES } from '../knowledge/dfm.ts';
+import { MATERIALS, RULES, IMPACT_SCREENING } from '../knowledge/dfm.ts';
 import type { RuleId, Severity } from '../knowledge/dfm.ts';
 import { PROCESSES, SURFACE_QUALITY } from '../knowledge/processes.ts';
 import { SOURCING_RULES, CERTIFICATIONS } from '../knowledge/compliance.ts';
@@ -43,6 +43,72 @@ export function minWallFor(process: ProcessLike, material?: { minWallMm: number 
 interface ProcessLike {
   id: string;
   minWallMm: number;
+}
+
+const DEFAULT_IMPACT_J = 2.5;
+/** Compliant feet, bumpers or corner bosses roughly double what a shell takes. */
+const MITIGATION_FACTOR = 1.8;
+
+export interface DropScreening {
+  partId: string;
+  partLabel: string;
+  materialId: string;
+  materialLabel: string;
+  /** From the same bounding-box proxy the cost model uses, so the two agree. */
+  massKg: number;
+  heightM: number;
+  orientations: number;
+  energyJ: number;
+  /** Energy this shell is expected to survive, after orientation, mitigation and wall factors. */
+  thresholdJ: number;
+}
+
+/**
+ * Order-of-magnitude drop screening: kinetic energy at the declared drop height
+ * against what the impact-bearing shell's material is expected to take.
+ *
+ * The shell is the largest custom (printed/machined/moulded) part - the thing
+ * that hits the floor. Bought modules are excluded because their mass is not
+ * modelled here, which makes this an underestimate, not an overestimate.
+ */
+export function dropScreening(spec: ProductSpec): DropScreening | null {
+  const dt = spec.dropTest;
+  if (!dt) return null;
+
+  const custom = spec.parts.filter((p) => p.kind !== 'catalog' && MATERIALS[p.material]);
+  if (custom.length === 0) return null;
+
+  let massKg = 0;
+  for (const part of custom) {
+    const mat = MATERIALS[part.material]!;
+    massKg += (partVolumeCm3(part) * mat.densityGPerCm3 * part.qty) / 1000;
+  }
+  if (massKg <= 0) return null;
+
+  const shell = [...custom].sort((a, b) => partVolumeCm3(b) * b.qty - partVolumeCm3(a) * a.qty)[0]!;
+  const mat = MATERIALS[shell.material]!;
+
+  const heightM = dt.heightM ?? 1;
+  const orientations = Math.max(1, dt.orientations ?? 3);
+  const energyJ = massKg * 9.81 * heightM;
+
+  let thresholdJ = IMPACT_SCREENING[shell.material] ?? DEFAULT_IMPACT_J;
+  // Three orientations is the baseline; more faces means the weak axis gets a turn.
+  thresholdJ *= 3 / orientations;
+  if (dt.mitigation?.length) thresholdJ *= MITIGATION_FACTOR;
+  if (shell.wallMm !== undefined && shell.wallMm < mat.minWallMm) thresholdJ *= 0.7;
+
+  return {
+    partId: shell.id,
+    partLabel: shell.label,
+    materialId: shell.material,
+    materialLabel: mat.label,
+    massKg,
+    heightM,
+    orientations,
+    energyJ,
+    thresholdJ,
+  };
 }
 
 export function checkDFM(spec: ProductSpec): Finding[] {
@@ -430,6 +496,50 @@ export function checkDFM(spec: ProductSpec): Finding[] {
       'No landed cost was published with this design.',
       'Publish cost at qty 1 / 100 / 1000. It is the first question every buyer asks.',
     );
+  }
+
+  // ---- impact screening ----------------------------------------------------
+  const drop = dropScreening(spec);
+  if (drop && drop.energyJ > drop.thresholdJ) {
+    push(
+      'DROP_TEST_AT_RISK',
+      drop.partId,
+      `Drop screen: ${drop.massKg.toFixed(2)}kg from ${drop.heightM}m is ${drop.energyJ.toFixed(1)}J across ${drop.orientations} orientation(s); a ${drop.materialLabel} shell of this size is expected to take about ${drop.thresholdJ.toFixed(1)}J.`,
+      `Add compliant feet or corner bosses, thicken ${drop.partLabel}, or move the shell to a tougher material (PP, PC, PA12). This is a screening estimate, not FEA - the real answer is dropping three of them.`,
+    );
+  }
+
+  // ---- measured geometry ---------------------------------------------------
+  // Declared geometry is a claim. When a mesh has been parsed, check the claim
+  // against it - the cost model already prefers the measured volume.
+  for (const part of spec.parts) {
+    const measured = part.measured;
+    if (!measured) continue;
+
+    if (!measured.watertight) {
+      push(
+        'GEOMETRY_NOT_WATERTIGHT',
+        part.id,
+        `${part.label}: the mesh is not watertight (${measured.triangles} triangles, open or non-manifold edges).`,
+        'Close the mesh before ordering anything. A slicer will either refuse it or silently patch it, and the patch fails later.',
+      );
+    }
+
+    const drift = (['x', 'y', 'z'] as const)
+      .map((axis) => ({ axis, declared: part.bboxMm[axis], measured: measured.bboxMm[axis] }))
+      .filter((d) => d.declared > 0 && Math.abs(d.measured - d.declared) / d.declared > 0.1);
+
+    if (drift.length) {
+      const detail = drift
+        .map((d) => `${d.axis} ${d.declared}mm declared vs ${d.measured.toFixed(1)}mm measured`)
+        .join(', ');
+      push(
+        'GEOMETRY_MISMATCH',
+        part.id,
+        `${part.label}: measured geometry disagrees with the spec (${detail}).`,
+        'Correct the spec to the mesh, or the mesh to the spec. Cost and the DFM checks both read the declaration.',
+      );
+    }
   }
 
   return findings;
