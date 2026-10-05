@@ -1,5 +1,8 @@
 import { ApifyClient } from 'apify-client';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { loadDotEnv } from './dotenv.mjs';
+
+await loadDotEnv();
 
 const ACTOR_ID = process.env.APIFY_ACTOR ?? 'BELjuwQScEd6DZpW3';
 

@@ -1,4 +1,7 @@
 import { ApifyClient } from 'apify-client';
+import { loadDotEnv } from './dotenv.mjs';
+
+await loadDotEnv();
 
 const ACTOR_ID = process.env.APIFY_ACTOR ?? 'BELjuwQScEd6DZpW3';
 

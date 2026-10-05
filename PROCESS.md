@@ -1,14 +1,14 @@
 # The Vibe-Hardware Process — Verified Stack & Competitive Map
 
-*Compiled 2026-09-12. Fourth doc; see `RESEARCH.md`, `OPERATIONS.md`, `LUXOBENCH.md`.*
+*Compiled 2026-09-12. Fourth doc; see `RESEARCH.md`, `OPERATIONS.md`, `BLINKYBENCH.md`.*
 
 ---
 
 ## 0. Two clarifications first
 
-**Yes — LuxoBench is not a product, and the person is at a16z.** Christian Keil (@pronounced_kyle) is
+**Yes — BlinkyBench is not a product, and the person is at a16z.** Christian Keil (@pronounced_kyle) is
 an **Investing Partner at Andreessen Horowitz** on the *American Dynamism* team (joined early 2026),
-formerly an executive at **Astranis** building satellites. LuxoBench is a personal weekend benchmark
+formerly an executive at **Astranis** building satellites. BlinkyBench is a personal weekend benchmark
 he's recruiting collaborators for. Nobody owns it, there's no repo, no leaderboard, no company. It is
 an **open invitation** — which is why it's an opportunity rather than a competitor.
 
@@ -20,7 +20,7 @@ It has nothing to do with hardware.
 But the *pattern* is the point, and it's worth naming: **CursorBench is exactly the template Keil is
 implicitly copying.** Cursor built its own benchmark from real usage instead of curated public tasks,
 and it became the standard the industry cites. Keil is proposing the hardware version of that. That's
-why LuxoBench matters more than it looks — it's the pattern that produced a de-facto industry standard
+why BlinkyBench matters more than it looks — it's the pattern that produced a de-facto industry standard
 last time.
 
 ---
@@ -175,13 +175,13 @@ Three entry points, ranked by how defensible they are right now:
 verifies them physically. Build the harness that takes any tool's output (Blueprint's, Artilora's,
 RapidDirect's, a raw model's) and answers: are the parts real and in stock, does the CAD open clean,
 does ERC/DRC pass, what's the true landed cost and critical-path lead time, does a human build it in
-under 20 minutes, does it survive a drop. **This is LuxoBench as a service.** It's small, fast,
+under 20 minutes, does it survive a drop. **This is BlinkyBench as a service.** It's small, fast,
 model-agnostic, sells into the entire ecosystem above, and the failure taxonomy you accumulate becomes
 the DFM rule engine — which is the moat from `RESEARCH.md` §8. Keil is recruiting collaborators for
 this publicly, on the a16z American Dynamism account, in a category they fund.
 
 > **Built:** `harness/` is the first working version of this layer — a model-agnostic engine and MCP
-> server that scores a design against the LuxoBench gates and prices it at qty 1/100/1000. See
+> server that scores a design against the BlinkyBench gates and prices it at qty 1/100/1000. See
 > `harness/README.md`.
 
 **2. Own one niche end to end, at qty 1–10.** Artilora is generic across jewelry/toys/consumer goods.

@@ -17,6 +17,23 @@ arrives. Generation is free and commoditised. Verification is not.
 
 ---
 
+## Run it in 2 minutes
+
+Needs only Node >= 22.6. No API keys, no installs for steps 1–2:
+
+```bash
+npm test                                 # 34 harness tests, from the repo root
+npm run --silent score -- --init > my-design.json # starter spec — edit it, make it yours
+npm run score -- my-design.json          # gates, cost at 1/100/1000, findings
+
+cd web && npm install --include=dev && npm run setup && npm run dev
+# → http://localhost:3000 — gallery, generator, leaderboard.
+# AI generation needs `npx wrangler login` (may incur charges);
+# scoring, browsing and the API work fully offline.
+```
+
+---
+
 ## What we are building
 
 **A verification layer for physical products — and the businesses that only become possible once it
@@ -51,7 +68,7 @@ Full reasoning: **`PLAN.md`** (what to build) and **`BUSINESS.md`** (which model
 | 2 | **`EVIDENCE.md`** | Every primary source, so you can check anything |
 | 3 | **`BUSINESS.md`** | The four business models with arithmetic, and the dead zone |
 | 4 | **`PLAN.md`** | What we're building, in what order, with kill criteria |
-| 5 | **`LUXOBENCH.md`** §1–5 | The benchmark, and what the two live runs actually showed |
+| 5 | **`BLINKYBENCH.md`** §1–5 | The benchmark, and what the two live runs actually showed |
 | 6 | `harness/README.md` | The engine, and how to wire it into your agent |
 
 Then, if you want the depth: `RESEARCH.md` (the market), `OPERATIONS.md` (what running this costs),
@@ -70,16 +87,25 @@ agent (Claude Code, Codex, anything that speaks MCP); the harness brings the man
 
 ```bash
 cd harness
+node src/index.ts score my-design.json   # score YOUR design file
+node src/index.ts score --init > my-design.json  # starter spec — edit it, score it
+node src/index.ts --help                 # every command
+
 node src/index.ts                 # score the designs from the first public benchmark run
 node src/index.ts --business      # which business models actually clear
 node src/index.ts --fulfilment    # one unit at a time vs batched production
 node src/index.ts --taxonomy      # the accumulated failure library
 node src/index.ts --full lamp-astra
-node --test "tests/*.test.ts"     # 14 tests incl. the MCP transport
+node --test "tests/*.test.ts"     # 35 tests incl. the MCP transport
 node src/mcp/server.ts            # MCP server (stdio)
 ```
 
-**10 hard gates · 36 DFM rules · 16 failure modes · 14 MCP tools.**
+From the repo root, `npm run score -- my-design.json` does the same thing.
+Only `name`, `intent`, `parts` and `operations` are required in a spec file —
+everything else gets sensible defaults, and every problem comes back with a
+path (`parts[0].qty`) so one run fixes the whole file.
+
+**11 hard gates · 39 DFM rules · 16 failure modes · 16 MCP tools.**
 
 What it catches today, on real published designs:
 
@@ -90,6 +116,7 @@ What it catches today, on real published designs:
 | Mini DJ controller | 1.85/5 | FAIL | 25 parts, no board in the BOM, firmware never compiled |
 | Voice note-taker (generated) | 1.33/5 | FAIL | 5 electronic parts, **no firmware shipped at all** |
 | Voice note-taker (board-based) | 3.38/5 | FAIL | Lithium cell — the one honest remaining trade |
+| Muse desk companion (Muse Gadgets reference) | 4.23/5 | **PASS** | None — a supported SDK board, ESP-IDF v6.0.1, real capabilities |
 
 See `harness/README.md` for the tool list and MCP wiring.
 
@@ -97,15 +124,19 @@ See `harness/README.md` for the tool list and MCP wiring.
 
 ## The platform — `web/`
 
-**LUXO** — the open-source Blueprint.io alternative and the distribution layer for everything above.
+**Blinky** — the open-source Blueprint.io alternative and the distribution layer for everything above.
 A Hugging Face-style hub for hardware, deployed entirely on Cloudflare (Next.js on Workers, D1, R2,
 KV, Workers AI). MIT licensed, one-click self-hostable.
 
-- **Generate** — prompt → design spec (BOM, wiring, assembly guide) → scored by the same harness →
-  public gallery. Workers AI free tier, no API keys.
+- **Generate** — prompt or starter template → design spec (BOM, wiring, assembly guide) → scored by
+  the same harness → public gallery. Workers AI free tier, no API keys.
 - **Explore** — every design is public and remixable, Midjourney-style: show people what's possible.
+  Muse gadget designs are badged and filterable.
 - **Kits** — open-source projects with prebuilt-kit paths. Flagship: Petoi's OpenCat/Bittle — open
   everything, sell the verified kit. The model for the eventual robotics line.
+- **Muse Gadgets targets** — pick a board the Muse Gadgets SDK actually runs on; the harness verifies
+  the match (supported board, ESP-IDF v6.0.1, real capability matrix — gate G11) and exports a
+  flash-ready build kit: the sdkconfig overlay, exact build/flash commands, and the pairing guide.
 - **Leaderboard + agent API** — `POST /api/designs` is push-to-hub for agents; as they adopt it, the
   leaderboard stops ranking designs and starts ranking the models that produced them.
 
@@ -130,10 +161,10 @@ Deploy instructions: `web/README.md`.
 | **`RESEARCH.md`** | The market. Who already builds this, what tooling amortisation, certification and the de minimis repeal do to the economics, and where the wedge is |
 | **`OPERATIONS.md`** | What "we're just the middleware" actually costs. Xometry's real P&L, per-order labour, liability, supplier onboarding, cash |
 | **`PROCESS.md`** | Every stage of the pipeline and the tool that exists for it today. Also: Lovable funded a direct competitor |
-| **`LUXOBENCH.md`** | The benchmark, designed to be ungameable — and the two live runs analysed, with predictions registered before results |
+| **`BLINKYBENCH.md`** | The benchmark, designed to be ungameable — and the two live runs analysed, with predictions registered before results |
 | **`PLAN.md`** | What to build |
 | **`BUSINESS.md`** | The four business models with arithmetic, including why low-volume consumer electronics are dead |
-| **`apify-output/`** | **The raw scraped thread** — 459 comments, 395 authors, Sep 2026. The primary evidence behind `LUXOBENCH.md` §9–11 |
+| **`apify-output/`** | **The raw scraped thread** — 459 comments, 395 authors, Sep 2026. The primary evidence behind `BLINKYBENCH.md` §9–11 |
 | **`data_x_comments.csv`** | An earlier 50-reply sample of the same thread |
 
 ---
