@@ -1,0 +1,16 @@
+name = "blinky-rollup"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["0 5 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "blinky-db"
+database_id = "c55cf8b8-9ac2-4450-86bb-5103c7dde19f"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "09cb12e0f30547828550ad9c546e3696"
