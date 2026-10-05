@@ -234,6 +234,7 @@ export default function GenerateForm({
         <textarea
           name="prompt"
           rows={4}
+          maxLength={2000}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Describe what you want to build…"

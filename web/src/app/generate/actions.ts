@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { getEnv, aiModel, rateLimit } from "@/lib/cf";
+import { clientIp } from "@/lib/request";
 
 export type GenerateState = { error: string | null };
 
@@ -15,8 +16,7 @@ export async function clarifyAction(prompt: string): Promise<{ questions: string
   try {
     // Best-effort endpoint, but each call burns AI quota — cap it per visitor.
     const h = await headers();
-    const ip = h.get("cf-connecting-ip") ?? h.get("x-forwarded-for") ?? "local";
-    if (!(await rateLimit(`clarify:${ip}`, 30))) return { questions: [] };
+    if (!(await rateLimit(`clarify:${clientIp(h)}`, 30))) return { questions: [] };
 
     const env = getEnv();
     const out = (await env.AI.run(aiModel(), {

@@ -14,12 +14,14 @@ export function aiModel(): string {
   return getEnv().AI_MODEL ?? DEFAULT_AI_MODEL;
 }
 
+/**
+ * Daily limit per key (callers pass "<bucket>:<clientIp>"). The D1 increment is
+ * atomic, so parallel requests cannot all slip under the limit.
+ */
 export async function rateLimit(keyPrefix: string, limit: number): Promise<boolean> {
-  const { KV } = getEnv();
-  const day = new Date().toISOString().slice(0, 10);
-  const key = `${keyPrefix}:${day}`;
-  const current = Number((await KV.get(key)) ?? 0);
-  if (current >= limit) return false;
-  await KV.put(key, String(current + 1), { expirationTtl: 60 * 60 * 48 });
-  return true;
+  const { incrementCounter } = await import("@/lib/db/queries");
+  const now = new Date();
+  const key = `${keyPrefix}:${now.toISOString().slice(0, 10)}`;
+  const expiresAt = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
+  return (await incrementCounter(key, expiresAt)) <= limit;
 }

@@ -6,6 +6,7 @@ import { MUSE_BOARDS, MUSE_LINUX } from "@/lib/harness/score";
 import { rateLimit } from "@/lib/cf";
 import { turnstileEnabled, verifyTurnstile } from "@/lib/turnstile";
 import { withCors, corsPreflight } from "@/lib/cors";
+import { clientIp, readJsonObject, MAX_PROMPT_CHARS, MAX_REQUEST_CHARS } from "@/lib/request";
 
 export const dynamic = "force-dynamic";
 
@@ -27,14 +28,11 @@ type JobBody = {
  * recorded in D1 — poll GET /api/jobs/[id] instead if you prefer polling.
  */
 export async function POST(req: NextRequest) {
-  let body: JobBody;
-  try {
-    body = (await req.json()) as JobBody;
-  } catch {
-    return withCors(NextResponse.json({ error: "invalid JSON body" }, { status: 400 }));
-  }
+  const read = await readJsonObject(req);
+  if (!read.ok) return withCors(NextResponse.json({ error: read.error }, { status: read.status }));
+  const body = read.body as JobBody;
 
-  const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for") ?? "local";
+  const ip = clientIp(req.headers);
   if (turnstileEnabled() && !(await verifyTurnstile(body.turnstileToken, ip))) {
     return withCors(NextResponse.json({ error: "Bot verification failed or expired." }, { status: 403 }));
   }
@@ -46,11 +44,16 @@ export async function POST(req: NextRequest) {
         NextResponse.json({ error: "Describe the thing you want to build — one sentence at least." }, { status: 422 }),
       );
     }
+    if (prompt.length > MAX_PROMPT_CHARS) {
+      return withCors(
+        NextResponse.json({ error: `Keep the description under ${MAX_PROMPT_CHARS} characters.` }, { status: 422 }),
+      );
+    }
     const sdk = typeof body.targetSdk === "string" ? body.targetSdk : "";
     const boardId = typeof body.targetBoard === "string" ? body.targetBoard : "";
     let target: TargetRequest | undefined;
     if (sdk === "esp32") {
-      const board = MUSE_BOARDS[boardId];
+      const board = Object.hasOwn(MUSE_BOARDS, boardId) ? MUSE_BOARDS[boardId] : undefined;
       if (!board) return withCors(NextResponse.json({ error: `Unknown Muse Gadget board '${boardId}'.` }, { status: 422 }));
       target = { sdk: "esp32", board: board.id, label: board.label };
     } else if (sdk === "linux") {
@@ -91,6 +94,11 @@ export async function POST(req: NextRequest) {
     if (!designId) return withCors(NextResponse.json({ error: "designId is required." }, { status: 422 }));
     if (request.length < 5) {
       return withCors(NextResponse.json({ error: "Say what should change — one sentence at least." }, { status: 422 }));
+    }
+    if (request.length > MAX_REQUEST_CHARS) {
+      return withCors(
+        NextResponse.json({ error: `Keep the change request under ${MAX_REQUEST_CHARS} characters.` }, { status: 422 }),
+      );
     }
 
     if (!(await rateLimit(`refine:${ip}`, 10))) {

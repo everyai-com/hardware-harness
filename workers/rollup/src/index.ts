@@ -76,6 +76,8 @@ async function rollup(env: Env): Promise<Record<string, unknown>> {
   await env.KV.put("stats:models", JSON.stringify(stats), { expirationTtl: 60 * 60 * 48 });
   // AI job rows are progress records, not history — keep 7 days.
   await env.DB.prepare("DELETE FROM jobs WHERE created_at < datetime('now', '-7 days')").run();
+  // Rate-limit counters are daily; expires_at is an ISO timestamp 48h out.
+  await env.DB.prepare("DELETE FROM rate_limits WHERE expires_at < ?").bind(new Date().toISOString()).run();
   return stats;
 }
 

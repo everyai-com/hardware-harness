@@ -57,8 +57,14 @@ export const MUSE_CAPABILITIES = [
 
 export const MUSE_SDKS = ["esp32", "linux"] as const;
 
-const num = z.coerce.number();
-const int = z.coerce.number().int();
+/**
+ * LLM-tolerant numbers: a numeric string ("12") is read as a number and null
+ * means "not given". "", booleans and arrays are rejected rather than silently
+ * becoming 0 (z.coerce turned `purchasePriceUsd: null` into a free bought
+ * part). z.number() also rejects NaN and Infinity.
+ */
+const toNumber = (v: unknown) => (v === null ? undefined : typeof v === "string" && v.trim() !== "" ? Number(v) : v);
+const num = <T extends z.ZodType>(schema: T) => z.preprocess(toNumber, schema);
 /** Accepts any casing and surrounding whitespace for enum values. */
 function lcEnum<T extends readonly [string, ...string[]]>(values: T) {
   return z.preprocess(
@@ -106,9 +112,9 @@ function withSynonyms(map: Record<string, string>) {
 }
 
 const bboxSchema = z.object({
-  x: num.positive(),
-  y: num.positive(),
-  z: num.positive(),
+  x: num(z.number().positive()),
+  y: num(z.number().positive()),
+  z: num(z.number().positive()),
 });
 
 /** Models omit the package size on bought parts; the freight proxy needs something sane. */
@@ -118,7 +124,7 @@ const catalogSourceSchema = z.object({
   distributor: z.preprocess(withSynonyms(DISTRIBUTOR_SYNONYMS), lcEnum(DISTRIBUTORS)),
   mpn: z.string().min(2).optional(),
   inStock: z.boolean().optional(),
-  alternates: int.nonnegative().optional(),
+  alternates: num(z.number().int().nonnegative().optional()),
   stockVerified: z.boolean().optional(),
   partType: z.preprocess(withSynonyms(PART_TYPE_SYNONYMS), lcEnum(PART_TYPES).optional()),
 });
@@ -129,28 +135,28 @@ const partSchema = z.object({
   kind: lcEnum(["custom", "catalog"]).default("custom"),
   process: lcEnum(PROCESSES),
   material: z.string().min(1),
-  qty: int.positive(),
+  qty: num(z.number().int().positive()),
   bboxMm: bboxSchema.default(DEFAULT_CATALOG_BBOX),
-  solidFraction: num.min(0.01).max(1).optional(),
-  wallMm: num.positive().optional(),
-  draftDeg: num.optional(),
-  toleranceMm: num.positive().optional(),
+  solidFraction: num(z.number().min(0.01).max(1).optional()),
+  wallMm: num(z.number().positive().optional()),
+  draftDeg: num(z.number().optional()),
+  toleranceMm: num(z.number().positive().optional()),
   visibleFaces: z.array(lcEnum(FACES)).optional(),
-  internalCornerRadiusMm: num.positive().optional(),
-  holeToBendMm: num.positive().optional(),
+  internalCornerRadiusMm: num(z.number().positive().optional()),
+  holeToBendMm: num(z.number().positive().optional()),
   features: z
     .array(
       z.object({
         label: z.string().min(1),
-        sizeMm: num.positive(),
+        sizeMm: num(z.number().positive()),
         kind: lcEnum(["hole", "rib", "boss", "slot"]),
       }),
     )
     .optional(),
-  maxOverhangDeg: num.optional(),
+  maxOverhangDeg: num(z.number().optional()),
   supportsTouchVisibleFace: z.boolean().optional(),
   source: catalogSourceSchema.optional(),
-  purchasePriceUsd: num.nonnegative().optional(),
+  purchasePriceUsd: num(z.number().nonnegative().optional()),
   notes: z.array(z.string()).optional(),
 });
 
@@ -167,16 +173,16 @@ const featureIntentSchema = z.object({
 const operationSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
-  minutes: num.nonnegative(),
+  minutes: num(z.number().nonnegative()),
   improvised: z.boolean().default(false),
   requiresSoldering: z.boolean().optional(),
-  wireCount: int.nonnegative().optional(),
+  wireCount: num(z.number().int().nonnegative().optional()),
 });
 
 const interfaceSchema = z.object({
   id: z.string().min(1),
   between: z.tuple([z.string(), z.string()]),
-  clearanceMm: num.nonnegative(),
+  clearanceMm: num(z.number().nonnegative()),
   contributors: z.array(z.string()).default([]),
 });
 
@@ -193,7 +199,7 @@ const netSchema = z.object({
   signal: lcEnum(SIGNALS).default("other"),
   endpoints: z.array(netEndpointSchema).min(2),
   // 0V is a legitimate ground reference (informational only — the engine never scores it).
-  voltage: num.min(0).optional(),
+  voltage: num(z.number().min(0).optional()),
   note: z.string().optional(),
 });
 
@@ -204,7 +210,7 @@ const powerSchema = z.object({
   usbPowered: z.boolean().default(false),
   externalAdapterCertified: z.boolean().optional(),
   includesAdapter: z.boolean().optional(),
-  maxWatts: num.positive().optional(),
+  maxWatts: num(z.number().positive().optional()),
 });
 
 const firmwareSchema = z.object({
@@ -215,7 +221,7 @@ const firmwareSchema = z.object({
   testedOnHardware: z.boolean().optional(),
   pinMapMatchesFootprints: z.boolean().optional(),
   dependenciesPinned: z.boolean().optional(),
-  linesApprox: int.nonnegative().optional(),
+  linesApprox: num(z.number().int().nonnegative().optional()),
   notes: z.array(z.string()).optional(),
 });
 
@@ -240,12 +246,12 @@ const targetSchema = z.object({
 });
 
 export const specSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(1),
-  intent: z.string().min(1),
+  id: z.string().optional(), // ignored on publish: the server sets id to the slug
+  name: z.string().min(1).max(200),
+  intent: z.string().min(1).max(4000),
   referenceRender: z.string().optional(),
-  targetRetailUsd: num.positive().optional(),
-  targetQuantities: z.array(int.positive()).nonempty().default([1, 100, 1000]),
+  targetRetailUsd: num(z.number().positive().optional()),
+  targetQuantities: z.array(num(z.number().int().positive().max(10_000_000))).nonempty().max(10).default([1, 100, 1000]),
   origin: lcEnum(["china", "domestic", "other"]).default("china"),
   markets: z.array(lcEnum(["us", "eu", "uk", "ca"])).optional(),
   target: targetSchema.optional(),
@@ -255,11 +261,11 @@ export const specSchema = z.object({
     battery: "none",
     usbPowered: false,
   }),
-  features: z.array(featureIntentSchema).default([]),
-  parts: z.array(partSchema).min(1),
-  interfaces: z.array(interfaceSchema).default([]),
-  nets: z.array(netSchema).optional(),
-  operations: z.array(operationSchema).min(1),
+  features: z.array(featureIntentSchema).max(100).default([]),
+  parts: z.array(partSchema).min(1).max(200),
+  interfaces: z.array(interfaceSchema).max(200).default([]),
+  nets: z.array(netSchema).max(500).optional(),
+  operations: z.array(operationSchema).min(1).max(500),
   certificationsBudgeted: z.array(z.string()).optional(),
   requiresSignedDrivers: z.boolean().optional(),
   costDisclosed: z.boolean().optional(),

@@ -108,7 +108,10 @@ export async function runRefineJob(
     const created = await createDesign(
       {
         prompt: `Refinement of ${original.title}: ${payload.request}`.slice(0, 500),
-        spec: result.spec,
+        // The model is told to keep untouched fields, so producedBy would carry
+        // over from the original; clear it so the revision is credited to the
+        // model that wrote it.
+        spec: { ...result.spec, producedBy: undefined },
         model: result.model,
         remixOf: payload.designId,
       },
