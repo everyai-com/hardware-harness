@@ -45,7 +45,7 @@ export async function getQuote(mpn: string): Promise<PartQuote | null> {
         quote = {
           source: "lcsc",
           mpn,
-          priceUsd: firstPrice !== undefined ? Number(firstPrice) : undefined,
+          priceUsd: finitePrice(firstPrice),
           stock: typeof p.stockNumber === "number" ? p.stockNumber : undefined,
           url: `https://www.lcsc.com/product-detail/${p.productCode}.html`,
         };
@@ -67,4 +67,11 @@ interface LcscProduct {
   productCode?: string;
   stockNumber?: number;
   priceList?: Array<{ l1Price?: number | string; l1_price?: number | string }>;
+}
+
+/** LCSC sometimes sends prices as strings; anything non-numeric is "no price", never NaN. */
+function finitePrice(value: number | string | undefined): number | undefined {
+  if (value === undefined || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
 }

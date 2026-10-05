@@ -57,7 +57,8 @@ export interface Process {
   source: string;
 }
 
-export const PROCESSES: Record<ProcessId, Process> = {
+// Null prototype: a spec value like "constructor" must not resolve as a table entry.
+export const PROCESSES: Record<ProcessId, Process> = Object.assign(Object.create(null), {
   fdm: {
     id: 'fdm',
     label: 'FDM 3D print (PLA/PETG)',
@@ -257,7 +258,7 @@ export const PROCESSES: Record<ProcessId, Process> = {
     ],
     source: 'woosourcing 2026: multi-cavity $15,000-$40,000; payback rule of thumb',
   },
-};
+} satisfies Record<ProcessId, Process>);
 
 export const STEEL_SHOT_LIFE: Array<{ steel: string; shots: [number, number]; bestFor: string }> = [
   { steel: 'Aluminium (7075 / QC-10)', shots: [5000, 30000], bestFor: 'Prototypes, market tests' },

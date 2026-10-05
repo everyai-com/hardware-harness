@@ -29,6 +29,13 @@
       "when": 1791186869298,
       "tag": "0003_keen_barracuda",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1791214825554,
+      "tag": "0004_rate_limits",
+      "breakpoints": true
     }
   ]
 }

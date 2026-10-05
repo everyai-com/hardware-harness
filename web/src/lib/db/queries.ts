@@ -1,10 +1,20 @@
 import { drizzle } from "drizzle-orm/d1";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { getEnv } from "@/lib/cf";
-import { designs, kits, votes, outcomes, jobs } from "./schema";
+import { designs, kits, votes, outcomes, jobs, rateLimits } from "./schema";
 
 function db() {
-  return drizzle(getEnv().DB, { schema: { designs, kits, votes, outcomes, jobs } });
+  return drizzle(getEnv().DB, { schema: { designs, kits, votes, outcomes, jobs, rateLimits } });
+}
+
+/** Atomically add one to a counter and return the new value. */
+export async function incrementCounter(key: string, expiresAt: string): Promise<number> {
+  const rows = await db()
+    .insert(rateLimits)
+    .values({ key, count: 1, expiresAt })
+    .onConflictDoUpdate({ target: rateLimits.key, set: { count: sql`${rateLimits.count} + 1` } })
+    .returning({ count: rateLimits.count });
+  return rows[0]?.count ?? Number.POSITIVE_INFINITY;
 }
 
 export type DesignRow = typeof designs.$inferSelect;
@@ -12,8 +22,10 @@ export type KitRow = typeof kits.$inferSelect;
 export type OutcomeRow = typeof outcomes.$inferSelect;
 export type JobRow = typeof jobs.$inferSelect;
 
-export async function insertDesign(row: typeof designs.$inferInsert): Promise<void> {
-  await db().insert(designs).values(row).onConflictDoNothing();
+/** Insert a design. False when the slug was taken in the meantime (nothing written). */
+export async function insertDesign(row: typeof designs.$inferInsert): Promise<boolean> {
+  const inserted = await db().insert(designs).values(row).onConflictDoNothing().returning({ id: designs.id });
+  return inserted.length > 0;
 }
 
 export async function slugTaken(id: string): Promise<boolean> {

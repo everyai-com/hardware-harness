@@ -74,7 +74,7 @@ export function BomTable({ spec, quotes }: { spec: ProductSpec; quotes?: Map<str
                   </td>
                   <td className="py-2 pr-4 font-mono">{p.qty}</td>
                   <td className="py-2 font-mono text-xs">
-                    {q?.priceUsd !== undefined ? (
+                    {typeof q?.priceUsd === "number" && Number.isFinite(q.priceUsd) ? (
                       <span className="text-accent">${q.priceUsd.toFixed(2)}*</span>
                     ) : p.purchasePriceUsd !== undefined ? (
                       `$${p.purchasePriceUsd.toFixed(2)}`

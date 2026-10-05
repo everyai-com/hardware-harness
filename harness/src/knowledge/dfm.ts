@@ -344,7 +344,8 @@ export interface Material {
   notes: string[];
 }
 
-export const MATERIALS: Record<string, Material> = {
+// Null prototype: a spec value like "constructor" must not resolve as a table entry.
+export const MATERIALS: Record<string, Material> = Object.assign(Object.create(null), {
   pla: { id: 'pla', label: 'PLA', minWallMm: 1.2, shrink: 0.003, densityGPerCm3: 1.24, costPerKgUsd: [18, 30], notes: ['Brittle, low heat resistance (~55C). Prototypes only.'] },
   petg: { id: 'petg', label: 'PETG', minWallMm: 1.2, shrink: 0.004, densityGPerCm3: 1.27, costPerKgUsd: [20, 35], notes: ['Tougher than PLA, still low heat resistance.'] },
   pa12: { id: 'pa12', label: 'Nylon PA12 (SLS/MJF)', minWallMm: 0.8, shrink: 0.015, densityGPerCm3: 1.01, costPerKgUsd: [60, 110], notes: ['The default for complex functional parts. Matte finish, dyeable.'] },
@@ -356,4 +357,4 @@ export const MATERIALS: Record<string, Material> = {
   silicone: { id: 'silicone', label: 'Silicone (cast/moulded)', minWallMm: 1.0, shrink: 0.0, densityGPerCm3: 1.15, costPerKgUsd: [18, 40], notes: ['Diffuser and grip material; needs its own mould.'] },
   tpu: { id: 'tpu', label: 'TPU', minWallMm: 1.0, shrink: 0.008, densityGPerCm3: 1.21, costPerKgUsd: [25, 45], notes: ['Flexible printed parts; slow to print.'] },
   alu6061: { id: 'alu6061', label: 'Aluminium 6061', minWallMm: 0.8, shrink: 0.0, densityGPerCm3: 2.7, costPerKgUsd: [5, 12], notes: ['Machined finish reads as premium. Anodising is a separate line item.'] },
-};
+} satisfies Record<string, Material>);

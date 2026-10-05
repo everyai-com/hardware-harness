@@ -2,6 +2,14 @@ node_modules/
 .env
 .env.*
 !.env.example
+.dev.vars*
+!.dev.vars.example
+.wrangler/
+.open-next/
+
+# Raw scraped X thread: reply authors' profile data. Regenerate with `npm start`.
+apify-output/
+data_x_comments.csv
 .DS_Store
 
 .commandcode/

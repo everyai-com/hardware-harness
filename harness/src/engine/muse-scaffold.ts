@@ -48,6 +48,36 @@ export interface MuseScaffold {
   notes: string[];
 }
 
+/**
+ * Spec fields are untrusted (anyone can publish a design), and the kit is run
+ * on a builder's machine. Nothing from the spec reaches a file name or a shell
+ * line without going through one of these.
+ */
+
+/** A file-name-safe id: lowercase [a-z0-9-], never empty, never a path. */
+export function kitId(id: string | undefined): string {
+  const safe = (id ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64);
+  return safe || 'design';
+}
+
+/** Collapse control characters (newlines included) so text stays on one line. */
+function oneLine(text: string): string {
+  return text.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').trim();
+}
+
+/** Quote a value as a single POSIX shell word. */
+function shQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function overlayName(spec: ProductSpec): string {
+  return `sdkconfig.${kitId(spec.id)}`;
+}
+
 const ESP_IDF_DIR = '~/esp/esp-idf-v6';
 const INSTALL_URL = `${MUSE_SDK.repo.replace('github.com', 'raw.githubusercontent.com')}/main/linux/install.sh`;
 
@@ -126,9 +156,9 @@ function capabilityTable(asked: string[], supported: string[]): string {
 }
 
 function overlayFile(spec: ProductSpec, preset: MuseBoard, deltas: string[]): string {
-  const chain = ['sdkconfig.defaults', ...preset.overlays, `sdkconfig.${spec.id}`].join(';');
+  const chain = ['sdkconfig.defaults', ...preset.overlays, overlayName(spec)].join(';');
   const lines = [
-    `# ${spec.name} - Muse Gadgets config overlay`,
+    `# ${oneLine(spec.name)} - Muse Gadgets config overlay`,
     `# Board: ${preset.label} (${preset.chip})`,
     '#',
     '# Loaded on top of the SDK defaults and the board overlay, in this order:',
@@ -153,13 +183,13 @@ function esp32Readme(spec: ProductSpec, preset: MuseBoard, scaffold: Omit<MuseSc
   const { commands, capabilities } = scaffold;
   const asked = capabilities.asked;
   const extras = capabilities.supported.filter((c) => !asked.includes(c));
-  const overlay = `sdkconfig.${spec.id}`;
+  const overlay = overlayName(spec);
   const hasDeltas = configDeltas(spec, preset).length > 0;
-  const toolchain = spec.firmware?.toolchain ?? '(not declared)';
+  const toolchain = oneLine(spec.firmware?.toolchain ?? '(not declared)');
   const toolchainOk = /esp[-_ ]?idf/i.test(toolchain) && /6\.0\.1/.test(toolchain);
 
   return [
-    `# ${spec.name} - Muse Gadget build kit`,
+    `# ${oneLine(spec.name)} - Muse Gadget build kit`,
     '',
     spec.intent,
     '',
@@ -237,7 +267,7 @@ function esp32Readme(spec: ProductSpec, preset: MuseBoard, scaffold: Omit<MuseSc
 function linuxReadme(spec: ProductSpec, scaffold: Omit<MuseScaffold, 'files'>): string {
   const { commands, capabilities } = scaffold;
   return [
-    `# ${spec.name} - Muse Gadget build kit (Linux)`,
+    `# ${oneLine(spec.name)} - Muse Gadget build kit (Linux)`,
     '',
     spec.intent,
     '',
@@ -294,11 +324,12 @@ function setupScript(commands: MuseScaffoldCommands, overlay: string | null): st
     'fi',
   ];
   if (overlay) {
-    lines.push(`cp "${overlay}" "$DEST/esp32/devices/"`, 'echo "SDK ready at $DEST/esp32"');
+    lines.push(`cp ${shQuote(overlay)} "$DEST/esp32/devices/"`, 'echo "SDK ready at $DEST/esp32"');
   } else {
     lines.push('echo "SDK ready at $DEST"');
   }
-  lines.push('', `echo "Build:  ${commands.build}"`, `echo "Flash:  ${commands.flash}"`, '');
+  // Build commands carry their own double quotes, so print them single-quoted.
+  lines.push('', `echo ${shQuote(`Build:  ${commands.build}`)}`, `echo ${shQuote(`Flash:  ${commands.flash}`)}`, '');
   return lines.join('\n');
 }
 
@@ -379,8 +410,8 @@ export function buildMuseScaffold(spec: ProductSpec, opts: { generatedAt?: strin
   }
 
   const deltas = configDeltas(spec, preset);
-  const overlay = `sdkconfig.${spec.id}`;
-  const plan = esp32BuildPlan(preset, deltas.length > 0, overlay);
+  const overlay = overlayName(spec);
+  const plan =esp32BuildPlan(preset, deltas.length > 0, overlay);
   const supported = [...preset.capabilities];
   const scaffold: Omit<MuseScaffold, 'files'> = {
     sdk: 'esp32',

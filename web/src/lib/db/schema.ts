@@ -99,3 +99,14 @@ export const jobs = sqliteTable(
 );
 
 export type Job = typeof jobs.$inferSelect;
+
+/**
+ * Daily per-visitor counters for rate limits. D1 runs writes one at a time,
+ * so an upsert-and-return is an atomic increment (KV get-then-put was not).
+ * Expired rows are pruned by the rollup worker.
+ */
+export const rateLimits = sqliteTable("rate_limits", {
+  key: text("key").primaryKey(), // "<bucket>:<ip>:<YYYY-MM-DD>"
+  count: integer("count").notNull().default(0),
+  expiresAt: text("expires_at").notNull(),
+});

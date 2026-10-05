@@ -24,19 +24,49 @@ export async function createDesign(
   },
   progress?: { onStage?: (stage: "scoring" | "publishing") => void },
 ): Promise<CreatedDesign> {
-  const spec = opts.spec;
-  spec.costDisclosed = true; // the platform publishes the number, always
-  applyMuseDefaults(spec); // Wi-Fi pairing + radio filing are platform facts
-  if (!spec.producedBy) spec.producedBy = opts.model ?? "manual";
+  // Work on a copy: callers keep their input untouched.
+  const base: SpecInput = structuredClone(opts.spec);
+  base.costDisclosed = true; // the platform publishes the number, always
+  applyMuseDefaults(base); // Wi-Fi pairing + radio filing are platform facts
+  if (!base.producedBy) base.producedBy = opts.model ?? "manual";
 
-  progress?.onStage?.("scoring");
-  const slug = await slugFor(spec.name);
-  const report = scoreSpec(spec as unknown as ProductSpec);
-  const specJson = JSON.stringify(spec);
-  const reportJson = JSON.stringify(report);
-  progress?.onStage?.("publishing");
+  // The slug is the design's id everywhere (URL, R2 key, vector id, Muse kit
+  // file names), so it is server-owned: a client-supplied spec.id is replaced.
+  // slugFor only checks availability, so a concurrent publish can still take
+  // the slug first; the insert reports that and we pick another.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    progress?.onStage?.("scoring");
+    const slug = await slugFor(base.name);
+    const spec: SpecInput = { ...base, id: slug };
+    const report = scoreSpec(spec as unknown as ProductSpec);
+    const specJson = JSON.stringify(spec);
+    const reportJson = JSON.stringify(report);
+    progress?.onStage?.("publishing");
 
-  await insertDesign({
+    const inserted = await insertDesign(designRow(slug, spec, specJson, reportJson, report, opts));
+    if (!inserted) continue;
+
+    // Search index: best-effort, never fails a publish. The text is short and
+    // the call is one embedding plus one upsert.
+    await indexDesign(slug, searchTextFor(spec)).catch(() => false);
+
+    // Permanent artifacts in R2: the exact bytes that were scored.
+    await storeArtifacts(slug, specJson, reportJson).catch(() => false);
+
+    return { slug, scoreTotal: report.score.total, gatesPassed: report.gates.passed };
+  }
+  throw new Error("Could not find a free name for this design. Try again.");
+}
+
+function designRow(
+  slug: string,
+  spec: SpecInput,
+  specJson: string,
+  reportJson: string,
+  report: ReturnType<typeof scoreSpec>,
+  opts: { prompt?: string; model: string | null; author?: string; remixOf?: string; category?: string },
+) {
+  return {
     id: slug,
     title: spec.name,
     prompt: opts.prompt ?? null,
@@ -52,14 +82,5 @@ export async function createDesign(
     author: opts.author ?? "anonymous",
     isPublic: true,
     createdAt: new Date().toISOString(),
-  });
-
-  // Search index: best-effort, never fails a publish. The text is short and
-  // the call is one embedding plus one upsert.
-  await indexDesign(slug, searchTextFor(spec)).catch(() => false);
-
-  // Permanent artifacts in R2: the exact bytes that were scored.
-  await storeArtifacts(slug, specJson, reportJson).catch(() => false);
-
-  return { slug, scoreTotal: report.score.total, gatesPassed: report.gates.passed };
+  };
 }

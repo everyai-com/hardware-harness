@@ -22,7 +22,7 @@ arrives. Generation is free and commoditised. Verification is not.
 Needs only Node >= 22.6. No API keys, no installs for steps 1–2:
 
 ```bash
-npm test                                 # 34 harness tests, from the repo root
+npm test                                 # harness tests, from the repo root
 npm run --silent score -- --init > my-design.json # starter spec — edit it, make it yours
 npm run score -- my-design.json          # gates, cost at 1/100/1000, findings
 
@@ -96,7 +96,7 @@ node src/index.ts --business      # which business models actually clear
 node src/index.ts --fulfilment    # one unit at a time vs batched production
 node src/index.ts --taxonomy      # the accumulated failure library
 node src/index.ts --full lamp-astra
-node --test "tests/*.test.ts"     # 35 tests incl. the MCP transport
+node --test "tests/*.test.ts"     # engine, gates, Muse kit safety and the MCP transport
 node src/mcp/server.ts            # MCP server (stdio)
 ```
 
@@ -164,8 +164,7 @@ Deploy instructions: `web/README.md`.
 | **`BLINKYBENCH.md`** | The benchmark, designed to be ungameable — and the two live runs analysed, with predictions registered before results |
 | **`PLAN.md`** | What to build |
 | **`BUSINESS.md`** | The four business models with arithmetic, including why low-volume consumer electronics are dead |
-| **`apify-output/`** | **The raw scraped thread** — 459 comments, 395 authors, Sep 2026. The primary evidence behind `BLINKYBENCH.md` §9–11 |
-| **`data_x_comments.csv`** | An earlier 50-reply sample of the same thread |
+| `apify-output/` *(not committed)* | The raw scraped thread behind `BLINKYBENCH.md` §9–11: 459 replies, 395 authors, Sep 2026. It holds reply authors' profile data, so it stays out of the repo; regenerate it with `npm start` (needs `APIFY_TOKEN`, see `.env.example`) |
 
 ---
 
@@ -195,13 +194,14 @@ harness/          the engine, gates, fixtures and MCP server
   src/engine/     DFM checks, process selection, landed cost, gates, scorecard, business + fulfilment
   src/fixtures/   the lamp reference, the two live benchmark designs, and the corrected rebuild
   src/mcp/        the MCP stdio server
-apify-output/     raw scraped thread data (gitignored)
+apify-output/     raw scraped thread data (gitignored; regenerate with `npm start`)
 *.md              the research and decision documents
 ```
 
 ## Not committed
 
-`.env` (Apify token), `node_modules/`, and raw scraped thread exports — all gitignored.
+`.env` (Apify token), `.dev.vars` (local Worker secrets), `.wrangler/` state, `node_modules/`, and raw
+scraped thread exports (`apify-output/`, `data_x_comments.csv`) — all gitignored.
 
 ## Status
 
