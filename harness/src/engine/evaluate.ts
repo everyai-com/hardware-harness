@@ -3,7 +3,7 @@
  *
  * Gates are pass/fail - they exist because failing any one of them means the
  * design cannot ship, regardless of how good the rest is. Scores are comparative.
- * This is the LuxoBench rubric, executable.
+ * This is the BlinkyBench rubric, executable.
  */
 
 import { PROCESSES } from '../knowledge/processes.ts';
@@ -179,17 +179,22 @@ export function runGates(spec: ProductSpec, findings: Finding[]): EvaluationRepo
 
   // G10 - firmware readiness (the "does it actually run" gate)
   const electronic = spec.parts.filter((p) => p.source?.partType && p.source.partType !== 'mechanical' && p.source.partType !== 'enclosure').length;
+  const platformTarget = spec.target?.platform === 'muse-gadgets';
+  // A gadget is firmware by definition: the platform target makes firmware
+  // required even when the BOM is a single board.
+  const firmwareRequired = electronic >= 2 || platformTarget;
   const fwFindings = findings.filter((f) => f.ruleId.startsWith('FIRMWARE') || f.ruleId === 'PINMAP_MISMATCH');
   const fwBlocking = fwFindings.filter((f) => f.severity === 'block').length;
   results.push({
     id: 'G10',
     label: 'Firmware ships, compiles, and matches the board pin map',
-    passed: electronic < 2 || fwBlocking === 0,
-    detail:
-      electronic < 2
-        ? 'no firmware required'
-        : fwBlocking > 0
-          ? fwFindings.filter((f) => f.severity === 'block').map((f) => f.ruleId).join('; ')
+    passed: !firmwareRequired || fwBlocking === 0,
+    detail: !firmwareRequired
+      ? 'no firmware required'
+      : fwBlocking > 0
+        ? fwFindings.filter((f) => f.severity === 'block').map((f) => f.ruleId).join('; ')
+        : platformTarget && electronic < 2
+          ? 'firmware present and consistent with the platform target'
           : 'firmware present and consistent with the board',
   });
 
@@ -202,6 +207,24 @@ export function runGates(spec: ProductSpec, findings: Finding[]): EvaluationRepo
     detail: misplaced.length
       ? misplaced.map((f) => (f.present ? `${f.label}: ${f.actualFace} instead of ${f.expectedFace}` : `${f.label}: missing`)).join('; ')
       : `${spec.features.length} feature(s) conform`,
+  });
+
+  // G11 - platform compatibility (the "does the SDK actually run on it" gate).
+  // Only a blocking finding fails it; toolchain and capability gaps are warns,
+  // because they degrade the claim rather than invalidate it.
+  const target = spec.target;
+  const hasTarget = target?.platform === 'muse-gadgets';
+  const targetBlocks = findings.filter((f) => f.ruleId.startsWith('TARGET_') && f.severity === 'block');
+  const targetWarns = findings.filter((f) => f.ruleId.startsWith('TARGET_') && f.severity === 'warn');
+  results.push({
+    id: 'G11',
+    label: 'Targets a board the device SDK actually runs on',
+    passed: !hasTarget || targetBlocks.length === 0,
+    detail: !hasTarget
+      ? 'no platform target'
+      : targetBlocks.length
+        ? targetBlocks.map((f) => f.ruleId).join('; ')
+        : `verified: ${target!.board}${targetWarns.length ? ` (${targetWarns.map((f) => f.ruleId).join('; ')})` : ''}`,
   });
 
   return { passed: results.every((r) => r.passed), results };
@@ -235,9 +258,12 @@ function scoreAxes(
   const blocks = findings.filter((f) => f.severity === 'block').length;
   const functionScore = clamp5(5 - blocks);
 
-  // Firmware - two artifacts have to agree
-  const fwBlocks = findings.filter((f) => (f.ruleId.startsWith('FIRMWARE') || f.ruleId === 'PINMAP_MISMATCH') && f.severity === 'block').length;
-  const fwWarns = findings.filter((f) => (f.ruleId.startsWith('FIRMWARE') || f.ruleId === 'PINMAP_MISMATCH') && f.severity === 'warn').length;
+  // Firmware - two artifacts have to agree. A platform claim lives here too:
+  // an unsupported board or toolchain is a firmware-readiness fact.
+  const firmwareFinding = (f: Finding) =>
+    f.ruleId.startsWith('FIRMWARE') || f.ruleId === 'PINMAP_MISMATCH' || f.ruleId.startsWith('TARGET_');
+  const fwBlocks = findings.filter((f) => firmwareFinding(f) && f.severity === 'block').length;
+  const fwWarns = findings.filter((f) => firmwareFinding(f) && f.severity === 'warn').length;
   const firmwareScore = clamp5(5 - fwBlocks * 3 - fwWarns * 1);
 
   // Reproducibility - second sources, tolerance stacks, documentation

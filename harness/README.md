@@ -17,13 +17,23 @@ cheap now. Verification is not.
 No dependencies. Requires Node >= 22.6 (uses native TypeScript type stripping).
 
 ```bash
+node src/index.ts score my-design.json   # score YOUR design (see examples/minimal-spec.json)
+node src/index.ts score --init > my-design.json  # starter spec — edit it, score it
+node src/index.ts --help                 # every command
+
 node src/index.ts                 # score the first public benchmark run
 node src/index.ts --full lamp-astra
 node src/index.ts --taxonomy      # the accumulated failure library
 
-node --test "tests/*.test.ts"     # 14 tests, including the MCP transport
+node --test "tests/*.test.ts"     # 35 tests, including the MCP transport
 node src/mcp/server.ts            # the MCP server (stdio)
 ```
+
+A spec is JSON: `name`, `intent`, `parts`, `operations`, plus the power,
+features, interfaces and wiring the design declares. Only those four are
+required — everything else gets the same defaults the web API applies, enums
+are case-insensitive, and every problem comes back with a path
+(`parts[0].qty`) so one run fixes the whole file.
 
 ## Wire it into your agent
 
@@ -58,7 +68,7 @@ The point is that the agent produces the design and the harness decides whether 
 | Tool | What it answers |
 | --- | --- |
 | `hardware_evaluate` | Full evaluation: findings, gates, scorecard, cost, lead time. **The acceptance test.** |
-| `hardware_gates` | The nine hard pass/fail gates only |
+| `hardware_gates` | The eleven hard pass/fail gates only |
 | `hardware_dfm_check` | Wall thickness, draft, supports on cosmetic faces, feature minimums, tolerance stacks, part count, improvised operations |
 | `hardware_landed_cost` | Cost per unit at qty 1 / 100 / 1000 including tooling amortisation, duty, inspection, certification, signed drivers, defect reserve |
 | `hardware_process_select` | Best process for one part *at a given quantity*, with the crossover quantity where a tooled process wins |
@@ -67,8 +77,12 @@ The point is that the agent produces the design and the harness decides whether 
 | `hardware_failure_taxonomy` | Every failure already observed in public AI hardware runs, with evidence |
 | `hardware_process_data` | Raw process capability, cost and lead-time data |
 | `hardware_rules` | The rule catalogue with rationale and evidence, plus 2026 tariff and QC economics |
-| `hardware_fixture` | The cube-lamp reference criteria, or a reconstructed design from the first public run |
+| `hardware_fixture` | The cube-lamp reference criteria, a reconstructed design from the first public run, or the gate-passing Muse Gadgets reference |
 | `hardware_spec_schema` | The `ProductSpec` shape the harness expects |
+| `hardware_business_model` | Gross margin, monthly profit and gross profit per labour hour for a hardware business model |
+| `hardware_fulfilment` | Single-at-a-time vs batched delivery costing, per unit delivered |
+| `hardware_muse_platform` | The boards the Muse Gadget SDK actually runs on, their real capabilities, and the pinned toolchain (ESP-IDF v6.0.1) |
+| `hardware_muse_scaffold` | The Muse Gadgets build kit for a targeted design: sdkconfig overlay, README, design.json, setup script |
 
 ## The gates
 
@@ -83,6 +97,8 @@ Failing any one means the design cannot ship, regardless of everything else.
 7. **G7** Programmable and analog parts from authorised channels
 8. **G8** Certification identified and budgeted
 9. **G9** Every reference feature present **and on the correct face**
+10. **G10** Firmware ships, compiles, and matches the board pin map
+11. **G11** A platform target (Muse Gadgets) runs on a supported board, with the pinned toolchain and real capabilities
 
 G9 exists because a model that scores 95.9% on a geometric-overlap CAD benchmark put the "face" of a
 lamp on the back of its base. Shape-matching cannot catch that. A human catches it in half a second.
@@ -98,6 +114,7 @@ From the reconstructed first public run (`node src/index.ts`):
 | Cube lamp — Astra | 3.18/5 | FAIL | 8 | Face is on the **back** — the reported defect |
 | Cube lamp — Fable 5.1 | 1.55/5 | FAIL | 17 | Dome wall 0.9mm (below FDM minimum), tolerances tighter than the process holds, one "file to fit" step |
 | Mini DJ controller | 1.91/5 | FAIL | 25 | Two tolerance stacks, counterfeit exposure on the MCU class |
+| Muse desk companion | 4.23/5 | **PASS** | 7 | A supported Muse Gadgets board, ESP-IDF v6.0.1, every capability real — the first design that clears every gate |
 
 And the cost table for the Astra lamp at a $69 target retail:
 
@@ -134,6 +151,10 @@ eats the margin — and it is a good business at 1,000. Nobody else is publishin
   step, and the reason the spec layer has to come first.
 - **No outcome data yet.** The compounding asset is recording what actually got built and what failed.
   That loop is not closed here — it is the next real build.
+- **Muse Gadgets compatibility is verified against declared data, not a physical flash.** The scaffold
+  is a build kit — sdkconfig overlay, exact toolchain/build/flash/pair commands, pairing guide — that
+  configures the upstream SDK. Compiling and flashing stay on the builder's machine, where the
+  hardware is.
 
 ## Next steps, in order
 

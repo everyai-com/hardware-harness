@@ -4,9 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node --env-file=.env run-actor.mjs",
-    "check": "node --env-file=.env verify-token.mjs"
+    "test": "npm test --prefix harness",
+    "start": "node run-actor.mjs",
+    "check": "node verify-token.mjs",
+    "score": "node harness/src/index.ts score"
   },
   "keywords": [],
   "author": "",

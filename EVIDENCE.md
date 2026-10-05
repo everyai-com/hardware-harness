@@ -26,7 +26,7 @@ Engineering-style mini DJ controller.
 **Reproduce it:** `npm start` (uses `run-actor.mjs`, `apify-input.json`, and `APIFY_TOKEN` from `.env`).
 Token check: `npm run check`. Actor: `BELjuwQScEd6DZpW3` (Twitter/X Comment Scraper).
 
-**What it established** (see `LUXOBENCH.md` §9–11):
+**What it established** (see `BLINKYBENCH.md` §9–11):
 - 23 separate people asked what it cost. **Zero answers.**
 - nim replied 13 times out of 459 comments — a 2.8% response rate.
 - A practitioner priced the real BOM: **$80 DAC + $20 ADC + $10 USB-C PD + $40 IO + $20 ports + $100+
@@ -131,6 +131,8 @@ is the finding.
 | [Visa × OpenAI agent payments](https://www.digitalcommerce360.com/2026/06/12/visa-openai-agent-led-payments/) | Since 10 Jun 2026 agents can complete purchases with tokenised credentials, spending limits and merchant controls |
 | [KiCAD MCP](https://github.com/ercbb/KiCAD-MCP-Server) · [FreeCAD MCP](https://mcp.directory/blog/freecad-mcp-complete-guide-2026) | Agents can already drive PCB and mechanical CAD, and read datasheets with citations |
 | [Anthropic Model Hardware Standard](https://www.pymnts.com/news/artificial-intelligence/2026/anthropic-previews-standard-for-ai-control-of-physical-devices/) | Research preview for agents operating physical lab and manufacturing equipment, via MCP |
+| [Muse Gadget SDK](https://github.com/facebookincubator/muse-gadget-sdk) | Apache-2.0 device SDKs (read 2026-10-04): **17 ESP32 boards** with a published capability matrix, toolchain pinned to **ESP-IDF v6.0.1** ("other versions aren't supported"), plus a Linux/Pi SDK with a fixed command surface. This is the board list, toolchain pin and capability matrix the harness verifies (rules `TARGET_*`, gate G11) and the build kit targets — a real, checkable platform claim |
+| [Musecases — hardware builds](https://musecases.netlify.app/hardware/) | Third-party tracker of real Muse Gadgets builds from X (**22 as of 2026-10-04**): Waveshare S3 AMOLED, Cardputer, Raspberry Pi 5, eInk status displays and one-prompt boards via tscircuit — plus ports well beyond the official list (3DS, RP2350 badge, Rabbit R1, Reachy Mini). Evidence that the SDK's board matrix is a floor, not a ceiling; surfaced in the app's reference page and build kits |
 
 ---
 

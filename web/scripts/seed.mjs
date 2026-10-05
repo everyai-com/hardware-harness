@@ -24,7 +24,7 @@ for (const spec of FIXTURES) {
   const report = evaluate(spec);
   const slug = spec.id;
   lines.push(
-    `INSERT OR REPLACE INTO designs (id, title, prompt, spec_json, score_json, score_total, gates_passed, model_used, produced_by, remix_of, category, author, likes, views, is_public, created_at) VALUES (` +
+    `INSERT OR REPLACE INTO designs (id, title, prompt, spec_json, score_json, score_total, gates_passed, model_used, produced_by, remix_of, category, target_platform, author, likes, views, is_public, created_at) VALUES (` +
       [
         sqlString(slug),
         sqlString(spec.name),
@@ -37,7 +37,8 @@ for (const spec of FIXTURES) {
         sqlString(spec.producedBy ?? null),
         sqlString(null),
         sqlString("reference"),
-        sqlString("luxobench"),
+        sqlString(spec.target?.platform ?? null),
+        sqlString("blinkybench"),
         0,
         0,
         1,
@@ -54,7 +55,7 @@ const kits = [
     name: "OpenCat — Bittle X",
     tagline: "Open-source quadruped robot dog. The framework is free; the kit ships to your door.",
     description:
-      "Petoi's OpenCat is the framework behind the Bittle robot dog and Nybble robot cat: gait coordination, servo control and IMU integration on an Arduino/ESP32 board, with Python API, block coding and ROS support on top. 30,000+ robots shipped, 20+ academic papers cite it. This is the model LUXO is aiming at: open-source everything, sell the verified kit. When LUXO gets into the robo biz, this is the benchmark to beat.",
+      "Petoi's OpenCat is the framework behind the Bittle robot dog and Nybble robot cat: gait coordination, servo control and IMU integration on an Arduino/ESP32 board, with Python API, block coding and ROS support on top. 30,000+ robots shipped, 20+ academic papers cite it. This is the model Blinky is aiming at: open-source everything, sell the verified kit. When Blinky gets into the robo biz, this is the benchmark to beat.",
     sourceUrl: "https://github.com/PetoiCamp/OpenCat-Quadruped-Robot",
     kitUrl: "https://www.petoi.com/products/petoi-robot-dog-bittle-x-voice-controlled",
     license: "MIT",

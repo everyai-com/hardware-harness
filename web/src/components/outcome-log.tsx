@@ -1,4 +1,5 @@
 import type { OutcomeRow } from "@/lib/db/queries";
+import { OutcomeForm } from "./outcome-form";
 
 const KIND_BADGE: Record<string, string> = {
   build: "bg-pass/15 text-pass",
@@ -10,14 +11,14 @@ const KIND_BADGE: Record<string, string> = {
 /**
  * The score -> build -> ACTUALS log. Estimates are claims; these are receipts.
  */
-export function OutcomeLog({ outcomes }: { outcomes: OutcomeRow[] }) {
+export function OutcomeLog({ designId, outcomes }: { designId: string; outcomes: OutcomeRow[] }) {
   return (
-    <section className="rounded-xl border border-line bg-card p-5">
+    <section id="outcomes" className="scroll-mt-20 rounded-xl border border-line bg-card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-semibold">Outcome log</h2>
       </div>
       <p className="mt-1 text-sm text-muted">
-        Reality recorded against this design — builds, live quotes, test results. Post yours via{" "}
+        Reality recorded against this design — builds, live quotes, test results. Agents post via{" "}
         <code className="font-mono text-xs text-accent">POST /api/designs/[id]/outcomes</code>.
       </p>
       {outcomes.length === 0 ? (
@@ -42,6 +43,7 @@ export function OutcomeLog({ outcomes }: { outcomes: OutcomeRow[] }) {
           ))}
         </ul>
       )}
+      <OutcomeForm designId={designId} />
     </section>
   );
 }

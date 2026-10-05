@@ -15,6 +15,7 @@ import { renderReport } from './engine/report.ts';
 import { FAILURE_TAXONOMY } from './knowledge/taxonomy.ts';
 import { compareModels } from './engine/business.ts';
 import { compareFulfilment } from './engine/fulfilment.ts';
+import { loadSpecFile, starterSpecText } from './score-file.ts';
 
 /** Which blocking finding is the headline for each design. Most structural first. */
 const HEADLINE_PRIORITY = [
@@ -45,6 +46,66 @@ const wantJson = args.includes('--json');
 const taxonomy = args.includes('--taxonomy');
 const business = args.includes('--business');
 const fulfilment = args.includes('--fulfilment');
+
+const HELP = `# Hardware Harness
+
+Verify a hardware design before anyone spends money: are the parts real, does
+the CAD hold up, what does it truly cost at 1 / 100 / 1,000 units.
+
+Score your own design:
+  node src/index.ts score my-design.json         human-readable verdict
+  node src/index.ts score my-design.json --json  machine-readable report
+  node src/index.ts score --init > my-design.json   starter spec — edit it, score it
+
+Explore the built-ins:
+  node src/index.ts                  re-score the first public benchmark run
+  node src/index.ts --full <id>      full report for one fixture
+  node src/index.ts --business       which business models actually clear
+  node src/index.ts --fulfilment     one unit at a time vs batched production
+  node src/index.ts --taxonomy       the accumulated failure library
+
+A spec is JSON: name, intent, parts, operations, and the power, features,
+interfaces and wiring the design declares. See examples/minimal-spec.json.`;
+
+if (args.includes('--help') || args.includes('-h') || args[0] === 'help') {
+  console.log(HELP);
+  process.exit(0);
+}
+
+if (args[0] === 'score') {
+  const rest = args.slice(1).filter((a) => a !== '--json');
+  if (rest[0] === '--init' || rest[0] === 'init') {
+    console.log(await starterSpecText());
+    process.exit(0);
+  }
+  const file = rest[0];
+  if (!file) {
+    console.error('Usage: node src/index.ts score <spec.json>   (or: score --init to print a starter spec)');
+    process.exit(2);
+  }
+  const result = await loadSpecFile(file);
+  if (!result.ok) {
+    const n = result.issues.length;
+    console.error(`"${file}" needs ${n} fix${n === 1 ? '' : 'es'} before it can be scored:\n`);
+    for (const i of result.issues) console.error(`- ${i.path || '<spec>'}: ${i.message}`);
+    process.exit(2);
+  }
+  let report;
+  try {
+    report = evaluate(result.spec);
+  } catch (e) {
+    console.error(`Scoring crashed: ${e instanceof Error ? e.message : String(e)}`);
+    console.error('The spec passed validation, so this is a harness bug — please report it with the spec file.');
+    process.exit(1);
+  }
+  console.log(wantJson ? JSON.stringify(report, null, 2) : renderReport(report));
+  process.exit(0);
+}
+
+if (args[0] && !args[0].startsWith('-')) {
+  console.error(`Unknown command "${args[0]}". Did you mean "score <spec.json>"? Run with --help.`);
+  process.exit(2);
+}
 
 if (fulfilment) {
   const inputs = {

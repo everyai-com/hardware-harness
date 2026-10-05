@@ -9,6 +9,7 @@ import { MATERIALS, RULES } from '../knowledge/dfm.ts';
 import type { RuleId, Severity } from '../knowledge/dfm.ts';
 import { PROCESSES, SURFACE_QUALITY } from '../knowledge/processes.ts';
 import { SOURCING_RULES, CERTIFICATIONS } from '../knowledge/compliance.ts';
+import { MUSE_SDK, MUSE_LINUX, museBoard, museBoardIds, museBoardWithCapability } from '../knowledge/platforms.ts';
 import { failuresForRule } from '../knowledge/taxonomy.ts';
 import type { Part, ProductSpec } from './types.ts';
 import { partVolumeCm3, totalPartCount } from './types.ts';
@@ -370,6 +371,83 @@ export function checkDFM(spec: ProductSpec): Finding[] {
               'block',
             );
           }
+        }
+      }
+    }
+  }
+
+  // ---- target platform -------------------------------------------------------
+  // A compatibility claim is worth exactly what the SDK's documentation
+  // supports: the board must be on the published list, the ESP32 toolchain must
+  // be the pinned ESP-IDF release, and every capability the design asks for must
+  // be in the board's feature matrix. This runs on the target alone - a
+  // board-only gadget is still a product, even with one electronic part.
+  const target = spec.target;
+  if (target && target.platform === 'muse-gadgets') {
+    const isLinux = target.sdk === 'linux';
+    const board = isLinux ? undefined : museBoard(target.board);
+    const linuxBoard = isLinux ? MUSE_LINUX.boards.find((b) => b.id === target.board) : undefined;
+    const supported = isLinux ? Boolean(linuxBoard) : Boolean(board);
+
+    if (!supported) {
+      const options = museBoardIds(target.sdk).join(', ');
+      push(
+        'TARGET_BOARD_UNSUPPORTED',
+        'target',
+        `Targets the Muse Gadgets SDK on "${target.board || '(no board declared)'}", which is not on the ${isLinux ? 'Linux' : 'ESP32'} supported list (${options}).`,
+        isLinux
+          ? 'Pick a listed Linux target, or record the bring-up: the SDK needs Bluetooth LE on Debian 11+/Ubuntu 22.04+ or Raspberry Pi OS Bullseye+.'
+          : 'Pick a supported board, or budget a bring-up: copy the closest sdkconfig overlay and follow "Add a board" in the SDK docs before claiming compatibility.',
+      );
+    }
+
+    if (board) {
+      for (const cap of target.capabilities ?? []) {
+        if (!board.capabilities.includes(cap)) {
+          const alt = museBoardWithCapability(cap);
+          const why = board.psramMb === null && (cap === 'images' || cap === 'tunnel') ? ' - it has no PSRAM' : '';
+          push(
+            'TARGET_CAPABILITY_UNSUPPORTED',
+            cap,
+            `${board.label} does not support "${cap}"${why}.`,
+            alt ? `Drop the capability or move to a board that has it (e.g. ${alt.label}).` : 'Drop the capability; no supported board provides it.',
+            'warn',
+          );
+        }
+      }
+
+      const toolchain = spec.firmware?.toolchain ?? '';
+      if (!/esp[-_ ]?idf/i.test(toolchain) || !/6\.0\.1/.test(toolchain)) {
+        push(
+          'TARGET_TOOLCHAIN_MISMATCH',
+          'firmware',
+          `Firmware toolchain ${toolchain ? `"${toolchain}"` : 'is not declared'}; the ESP32 Device SDK builds with ESP-IDF ${MUSE_SDK.espIdf} only.`,
+          `Pin the toolchain to ESP-IDF ${MUSE_SDK.espIdf} - "Other versions aren't supported".`,
+          'warn',
+        );
+      }
+
+      const targetFw = spec.firmware;
+      if (electronicParts.length < 2 && (!targetFw || targetFw.provided === false)) {
+        push(
+          'FIRMWARE_MISSING',
+          'firmware',
+          'A Muse gadget with no firmware: the SDK firmware is what makes it a gadget, and the design does not ship or reference it.',
+          'Ship the firmware built from the Muse Gadgets SDK with the design - or state explicitly that the buyer flashes the upstream SDK themselves.',
+        );
+      }
+    }
+
+    if (isLinux) {
+      for (const cap of target.capabilities ?? []) {
+        if (!MUSE_LINUX.capabilities.includes(cap)) {
+          push(
+            'TARGET_CAPABILITY_UNSUPPORTED',
+            cap,
+            `The Linux SDK exposes commands (${MUSE_LINUX.commands.map((c) => c.id).join(', ')}), not "${cap}" - there is no device UI.`,
+            'Drop the capability, or move to an ESP32 board for screens, audio and push-to-talk.',
+            'warn',
+          );
         }
       }
     }

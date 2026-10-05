@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "luxo",
+  "name": "blinky",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -14,7 +14,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "luxo-db",
+      "database_name": "blinky-db",
       "database_id": "c55cf8b8-9ac2-4450-86bb-5103c7dde19f",
       "migrations_dir": "drizzle/migrations"
     }
@@ -22,13 +22,20 @@
   "r2_buckets": [
     {
       "binding": "R2",
-      "bucket_name": "luxo-assets"
+      "bucket_name": "blinky-assets"
     }
   ],
   "kv_namespaces": [
     {
       "binding": "KV",
       "id": "09cb12e0f30547828550ad9c546e3696"
+    }
+  ],
+  "vectorize": [
+    {
+      "binding": "VEC",
+      "index_name": "blinky-designs",
+      "remote": true
     }
   ],
   "observability": {

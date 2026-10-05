@@ -13,7 +13,7 @@ export default async function KitsPage() {
         <p className="max-w-2xl text-muted">
           Open-source hardware you can actually get — Hugging Face for physical things. Every entry
           publishes its source; most sell the prebuilt kit. This is the Petoi model: open everything,
-          sell the verified parts. LUXO kits (when they exist) will be subassemblies — the parts of
+          sell the verified parts. Blinky kits (when they exist) will be subassemblies — the parts of
           the thing, not the thing — because kits don&apos;t dodge certification and subassemblies
           do.
         </p>

@@ -1,0 +1,1 @@
+ALTER TABLE `designs` ADD `target_platform` text;

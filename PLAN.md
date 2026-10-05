@@ -1,6 +1,6 @@
 # PLAN — What To Actually Build
 
-*Decision doc. 13 Sep 2026. Reads with `RESEARCH.md`, `OPERATIONS.md`, `PROCESS.md`, `LUXOBENCH.md`,
+*Decision doc. 13 Sep 2026. Reads with `RESEARCH.md`, `OPERATIONS.md`, `PROCESS.md`, `BLINKYBENCH.md`,
 and the working code in `harness/`.*
 
 ---

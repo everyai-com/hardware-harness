@@ -1,4 +1,4 @@
-export const metadata = { title: "API — LUXO" };
+export const metadata = { title: "API — Blinky" };
 
 const ENDPOINTS = [
   {
@@ -30,7 +30,7 @@ const ENDPOINTS = [
   ],
   "cad": { "opensClean": true, "watertight": true, "requiresManualRepair": false }
 }`,
-    returns: "The full LuxoBench EvaluationReport: gates, DFM findings, weighted scorecard, landed cost at every target quantity. Nothing is stored.",
+    returns: "The full BlinkyBench EvaluationReport: gates, DFM findings, weighted scorecard, landed cost at every target quantity. Nothing is stored.",
   },
   {
     method: "POST",
@@ -41,7 +41,8 @@ const ENDPOINTS = [
   "remixOf": "lamp-astra",
   "spec": { "...same ProductSpec schema as /api/evaluate": "..." }
 }`,
-    returns: "201 with { slug, score, gatesPassed, url }. The design is published into the public gallery with its scorecard — push to hub.",
+    returns:
+      "201 with { slug, score, gatesPassed, url }. The design is published into the public gallery with its scorecard — push to hub. When the deployment enables Turnstile (off by default), pass the widget token as turnstileToken or the publish is rejected with 403.",
   },
   {
     method: "GET",
@@ -55,10 +56,75 @@ const ENDPOINTS = [
     returns: "One design's full spec + report + remix lineage as JSON.",
   },
   {
+    method: "GET",
+    path: "/api/designs/[id]/muse",
+    query: "?format=json|zip",
+    returns:
+      "The Muse Gadgets build kit for a targeted design: board, capability check against the SDK's real matrix, exact build/flash/pair commands (JSON), or the sdkconfig overlay + README + design.json + setup.sh as a .zip download.",
+  },
+  {
     method: "POST",
     path: "/api/like",
     body: `{ "id": "lamp-astra" }`,
     returns: "{ likes, voted } — one vote per visitor.",
+  },
+  {
+    method: "GET",
+    path: "/api/quote",
+    query: "?mpn=ESP32-S3",
+    returns:
+      "Best-effort live distributor lookup for one part number. { quote: null } on any failure — the harness estimate is the floor, never the quote.",
+  },
+  {
+    method: "GET",
+    path: "/api/designs/[id]/outcomes",
+    returns: "The recorded reality for a design: builds, quotes, tests and notes with their actuals.",
+  },
+  {
+    method: "GET",
+    path: "/api/similar/[id]",
+    query: "?limit=4",
+    returns:
+      "Designs nearest this one in embedding space (Workers AI + Vectorize): id, title, score, gates, url. Empty array when search is unavailable in this environment.",
+  },
+  {
+    method: "GET",
+    path: "/api/designs/[id]/artifact",
+    query: "?file=spec|report",
+    returns:
+      "The exact bytes that were scored, served from R2 (?download=1 attaches the file). Designs published before artifacts existed fall back to the database copy.",
+  },
+  {
+    method: "POST",
+    path: "/api/jobs",
+    body: `{
+  "type": "generate",
+  "prompt": "A USB-powered desk clock with a tiny OLED display",
+  "targetSdk": "esp32",
+  "targetBoard": "m5stack-cores3",
+  "remixOf": "lamp-astra"
+}
+// or { "type": "refine", "designId": "lamp-astra",
+//      "request": "swap the lithium cell for USB power" }`,
+    returns:
+      "Runs the AI pipeline with live stages over text/event-stream (drafting → scoring → publishing → done with slug+url, or error). Same rate limits and Turnstile rules as the form.",
+  },
+  {
+    method: "GET",
+    path: "/api/jobs/[id]",
+    returns: "Job status for pollers: queued|running|done|failed, current stage, result slug or error. Rows are pruned after 7 days.",
+  },
+  {
+    method: "POST",
+    path: "/api/designs/[id]/outcomes",
+    body: `{
+  "kind": "build",
+  "summary": "Built one, works, 41 min assembly",
+  "data": { "actualCostUsd": 52.1, "assemblyMinutes": 41 },
+  "author": "my-agent"
+}`,
+    returns:
+      '201 with the recorded outcome. kind is one of "build"|"quote"|"test"|"note". This is the score → build → actuals loop that turns the ±40% estimate into ±10%.',
   },
 ];
 
@@ -83,13 +149,39 @@ curl -s https://YOUR-DEPLOYMENT.workers.dev/api/evaluate \\
   -d @spec.json | jq '.report.score'
 
 # Publish a scored design into the gallery
+jq -n --slurpfile spec spec.json '{spec: $spec[0], author: "my-agent"}' > publish.json
 curl -s https://YOUR-DEPLOYMENT.workers.dev/api/designs \\
   -H 'content-type: application/json' \\
-  -d '{"spec": @spec.json, "author": "my-agent"}'`}
+  -d @publish.json`}
         </pre>
         <p className="mt-3 text-sm text-muted">
           Spec schema: <span className="font-mono">harness/src/engine/types.ts</span> (ProductSpec) —
           the zod mirror lives in <span className="font-mono">web/src/lib/spec-schema.ts</span>.
+        </p>
+      </section>
+
+      <section className="rounded-xl border border-line bg-card p-5">
+        <h2 className="font-semibold">Muse Gadgets targets</h2>
+        <p className="mt-2 text-sm text-muted">
+          Add a <span className="font-mono">target</span> to a spec to claim device-platform
+          compatibility. The harness verifies it — gate <span className="font-mono">G11</span>: the
+          board must be on the SDK&apos;s supported list, the ESP32 toolchain must be pinned to
+          ESP-IDF v6.0.1, and every capability must be in the board&apos;s real matrix. A verified
+          design exports a build kit that configures the upstream SDK (it does not generate
+          firmware).
+        </p>
+        <pre className="mt-3 overflow-x-auto rounded-lg bg-background p-4 font-mono text-xs leading-relaxed text-muted">
+{`"target": {
+  "platform": "muse-gadgets",
+  "sdk": "esp32",
+  "board": "m5stack-cores3",
+  "capabilities": ["display", "touch", "push_to_talk", "tunnel"]
+}`}
+        </pre>
+        <p className="mt-3 text-sm text-muted">
+          Board ids and their capabilities are on the <a href="/reference" className="text-accent hover:underline">reference page</a>,
+          via the <span className="font-mono">hardware_muse_platform</span> MCP tool, or in any
+          design&apos;s build sheet at <span className="font-mono">/api/designs/[id]/muse</span>.
         </p>
       </section>
 

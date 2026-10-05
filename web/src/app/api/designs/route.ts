@@ -3,6 +3,7 @@ import { specSchema } from "@/lib/spec-schema";
 import { createDesign } from "@/lib/create-design";
 import { listDesigns } from "@/lib/db/queries";
 import { rateLimit } from "@/lib/cf";
+import { turnstileEnabled, verifyTurnstile } from "@/lib/turnstile";
 import { voterHashFromHeaders } from "@/lib/voter";
 import { withCors, corsPreflight } from "@/lib/cors";
 
@@ -33,7 +34,8 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/designs — "push to hub": validate a spec, score it with the
  * harness, and publish it into the public gallery. Returns the share URL.
- * Body: { spec: ProductSpec, prompt?, author?, remixOf? }
+ * Body: { spec: ProductSpec, prompt?, author?, remixOf?, turnstileToken? }
+ * (turnstileToken is required only when the deployment enables Turnstile.)
  */
 export async function POST(req: NextRequest) {
   const vh = await voterHashFromHeaders(req.headers);
@@ -47,11 +49,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { spec?: unknown; prompt?: unknown; author?: unknown; remixOf?: unknown };
+  let body: { spec?: unknown; prompt?: unknown; author?: unknown; remixOf?: unknown; turnstileToken?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return withCors(NextResponse.json({ error: "invalid JSON body" }, { status: 400 }));
+  }
+
+  if (turnstileEnabled()) {
+    const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for");
+    if (!(await verifyTurnstile(body.turnstileToken, ip))) {
+      return withCors(NextResponse.json({ error: "Bot verification failed or expired." }, { status: 403 }));
+    }
   }
 
   const parsed = specSchema.safeParse(body.spec);

@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LUXO — design hardware with AI, score it before you build",
+  title: "Blinky — design hardware with AI, score it before you build",
   description:
-    "Open-source Blueprint alternative: generate hardware designs with AI, score them with the LuxoBench harness (DFM, landed cost, build gates), remix what's possible, and browse open-source kits.",
+    "The Lovable-style flow for hardware, open source: generate designs with AI, score them with the BlinkyBench harness (DFM, landed cost, build gates), target a Muse Gadget and export a flash-ready build kit, remix what's possible.",
 };
 
 const NAV = [
@@ -35,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <header className="border-b border-line">
           <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
             <Link href="/" className="font-mono text-lg font-bold tracking-tight">
-              LUXO<span className="text-accent">_</span>
+              Blinky<span className="text-accent">_</span>
             </Link>
             <nav className="flex flex-wrap gap-4 text-sm text-muted">
               {NAV.map((n) => (
@@ -52,7 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
         <footer className="border-t border-line">
           <div className="mx-auto flex max-w-6xl flex-wrap gap-4 px-4 py-6 text-xs text-muted">
-            <span>LUXO — open hardware, honestly scored.</span>
+            <span>Blinky — open hardware, honestly scored.</span>
             <span className="font-mono">every score is ±40% until someone builds it</span>
           </div>
         </footer>

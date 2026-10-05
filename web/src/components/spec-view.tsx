@@ -1,5 +1,6 @@
 import type { ProductSpec } from "@/lib/harness/score";
 import { WiringDiagram } from "./wiring-diagram";
+import { MuseGadgetPanel } from "./muse-panel";
 
 function Th({ children }: { children: React.ReactNode }) {
   return <th className="border-b border-line py-2 pr-4 text-left text-xs uppercase tracking-wide text-muted">{children}</th>;
@@ -227,7 +228,7 @@ export function NetTable({ spec }: { spec: ProductSpec }) {
   );
 }
 
-export function SpecView({ spec, quotes }: { spec: ProductSpec; quotes?: Map<string, BomQuote> }) {
+export function SpecView({ spec, quotes, designId }: { spec: ProductSpec; quotes?: Map<string, BomQuote>; designId?: string }) {
   return (
     <div className="space-y-6">
       <BomTable spec={spec} quotes={quotes} />
@@ -235,6 +236,7 @@ export function SpecView({ spec, quotes }: { spec: ProductSpec; quotes?: Map<str
       <AssemblyGuide spec={spec} />
       <FeatureIntentTable spec={spec} />
       <SpecExtras spec={spec} />
+      {designId ? <MuseGadgetPanel spec={spec} designId={designId} /> : null}
       <WiringDiagram spec={spec} />
     </div>
   );

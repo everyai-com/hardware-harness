@@ -1,4 +1,4 @@
-# LuxoBench — Verification & Design Brief
+# BlinkyBench — Verification & Design Brief
 
 *Checked 2026-09-12. Companion to `RESEARCH.md` and `OPERATIONS.md`.*
 
@@ -34,7 +34,7 @@ turbocharger split into working parts, a camera broken into 100+ components, a c
 of named pieces, and a competition robot intake in ~7 hours. All shape-level. None validated as
 buildable.
 
-**And here is the catch that justifies LuxoBench entirely:** Astra's headline CAD score is **95.9% on
+**And here is the catch that justifies BlinkyBench entirely:** Astra's headline CAD score is **95.9% on
 BenchCAD** (vs 83.3% for GPT-5.6 Sol). BenchCAD tests whether a model can **write executable CAD code
 from multi-view images of a component** — and the metric is **geometric overlap**. That is, the
 benchmark rewards *matching a silhouette*. Nothing in it tests wall thickness, draft angle, tolerance
@@ -46,7 +46,7 @@ stack, part availability, cost, or whether the object survives being picked up.
 
 ## 2. The benchmark landscape — and the actual gap
 
-LuxoBench is not entering empty space. There are four serious adjacent benchmarks, and each stops
+BlinkyBench is not entering empty space. There are four serious adjacent benchmarks, and each stops
 short of a whole physical product:
 
 | Benchmark | Domain | What it measures | Where it stops |
@@ -55,7 +55,7 @@ short of a whole physical product:
 | **PCB-Bench** (ICLR 2026) | PCB layout | ~3,700 text Qs, ~500 image-text, 174 real projects; placement and routing reasoning | Placement/routing as reasoning — not a buildable product |
 | **HWE-Bench** (arXiv 2604.14709) | Hardware bug repair | Repository-level agent tasks in industrial modeling/design software | Repair, not creation |
 | **ChipBench** (arXiv 2601.21448) | Chip design | Verilog generation, debugging | Silicon, not objects |
-| **BenchCAD** | CAD generation | Executable CAD code from views, scored on **geometric overlap** | Shape match only — the metric LuxoBench must not use |
+| **BenchCAD** | CAD generation | Executable CAD code from views, scored on **geometric overlap** | Shape match only — the metric BlinkyBench must not use |
 
 **Nobody grades the thing end users actually care about: can a human receive a kit of parts and end up
 with a working object, at a known cost, in a known number of days.** Christian Keil's own framing in
@@ -79,7 +79,7 @@ Per the thread:
   "invent something easy to build."
 
 This mirrors the reason EEBench works: it moves the task out of GUI territory into something
-**deterministic and locally verifiable**. For LuxoBench the equivalent move is: **the render is the
+**deterministic and locally verifiable**. For BlinkyBench the equivalent move is: **the render is the
 spec, the BOM must be real, and a human must build it.**
 
 ---
@@ -132,7 +132,7 @@ benchmarks.**
 
 ### The failure taxonomy is the actual product
 
-The most valuable artifact LuxoBench can produce is not a leaderboard — it's a **categorized failure
+The most valuable artifact BlinkyBench can produce is not a leaderboard — it's a **categorized failure
 list**: hallucinated parts, unobtainable MOQs, tolerance stacks that don't close, thermal paths
 ignored, parts that only exist as renders, cost quoted at 10k qty while ordering 1, designs needing
 manual repair, "works" only after blue wires. That taxonomy is directly the engineering backlog for
@@ -149,7 +149,7 @@ Start where failure is cheap and fast, end where it's interesting:
 |---|---|---|
 | **0** | Phone stand / passive mount | Calibration fixture. No electronics. If models fail here, nothing else is worth running |
 | **1** | **The lamp render** (your attachment) | The sweet spot: two visible parts, a diffuser, USB-C, one interaction (touch/button), firmware. Real EE + real mechanical + real optics, all low-voltage |
-| **2** | Articulating arm lamp (Luxo-style) | Adds a mechanism: springs, friction joints, stiffness, load at reach, safety for a spring under tension |
+| **2** | Articulating arm lamp (Blinky-style) | Adds a mechanism: springs, friction joints, stiffness, load at reach, safety for a spring under tension |
 | **3** | Mini DJ controller (the original viral task) | Adds many-electrode UI, firmware, enclosure ergonomics, and cost pressure |
 
 ### Fixture 1 acceptance criteria — the lamp in your image
@@ -206,7 +206,7 @@ You don't have to build the tooling layer:
   machine-verified builds rather than human-verified ones.
 - **Competing products to be aware of:** **Blueprint (@tryblueprint_io)** markets itself as "Claude for
   Hardware" — idea → parts list, sourcing options, wiring schematics, CAD, instructions. That's the
-  same lane as your startup, so LuxoBench doubles as the neutral way to compare against it.
+  same lane as your startup, so BlinkyBench doubles as the neutral way to compare against it.
 
 ---
 
@@ -238,19 +238,19 @@ engineering product is the taxonomy.
 
 ## 8. Why this matters for what you're building
 
-LuxoBench's rubric **is** your product's acceptance test. If your agent can pass Fixture 1 — real
+BlinkyBench's rubric **is** your product's acceptance test. If your agent can pass Fixture 1 — real
 BOM, real quotes, clean ERC/DRC, a human builds it in 20 minutes, it lights up and survives a drop —
 you have a product. If it can pass Fixture 2 (a spring-loaded mechanism at low voltage), you're ahead
 of every tool on the market today.
 
 Three practical consequences:
 
-1. **Run LuxoBench against your own stack weekly.** It's the only honest progress metric: not
+1. **Run BlinkyBench against your own stack weekly.** It's the only honest progress metric: not
    "did the demo look good," but "did the part arrive and work."
 2. **The failure taxonomy becomes your DFM rule engine.** Every categorized failure mode is a rule
    you ship in the spec layer. That's how the moat in `RESEARCH.md` §8 gets built — from real
    failures, not from imagination.
-3. **Publishing it buys you the niche.** The people who care about LuxoBench (Keil himself, EEBench's
+3. **Publishing it buys you the niche.** The people who care about BlinkyBench (Keil himself, EEBench's
    team, the HN crowd that produced the $6 working VGA board story) are exactly your first users and
    your first hires. EEBench's own disclosed conflict — built by atopile to choose models for their
    product — is the precedent: owning the benchmark is a legitimate distribution strategy.
@@ -271,7 +271,7 @@ contains no answers to any of them.*
 | What the crowd asked | Who | Maps to |
 |---|---|---|
 | *"Good luck manufacturing that case **violating every DFM principle**. Straight up impossible for injection molding and a nightmare for FDM and SLA. Only viable tech for that shape is **SLS in nylon, $50 for part this big**. Tell Astra to get an engineering degree."* | @BartekMoniewski | **The entire thesis of this document.** DFM hard gate + process-fit axis + cost axis, in one reply from an independent engineer. Also note the number: **$50 for a qty-1 SLS part of that size** — which lands exactly inside the $35–50 fixture-1 cost target |
-| *"did you actually order the parts?"* · *"But did it work?"* · *"I'd be surprised if it turns on"* · *"What did you do with the parts? Did you build it?"* · *"Now order it with your own money and tell us how well it works 🍿"* | @MaximePeabody, @n3r4, @towtruckron, @MiddleNameGary, @Jerome04475418 | **Axis D — does it work.** Five separate people demanding a physical build. This is LuxoBench, requested by the market before it existed |
+| *"did you actually order the parts?"* · *"But did it work?"* · *"I'd be surprised if it turns on"* · *"What did you do with the parts? Did you build it?"* · *"Now order it with your own money and tell us how well it works 🍿"* | @MaximePeabody, @n3r4, @towtruckron, @MiddleNameGary, @Jerome04475418 | **Axis D — does it work.** Five separate people demanding a physical build. This is BlinkyBench, requested by the market before it existed |
 | *"sourcing is easy to mess up — last time I had it look for components, it **nearly ordered me knockoffs**"* + *"Reading Chinese datasheets is the real barrier"* | @JCStart7yr (translated from Chinese) | **NEW GATE — authenticity** (below). A practitioner confirming both the datasheet bottleneck *and* a risk nobody has gated yet |
 | *"Where did you order parts? **My agent gave up on AliExpress UI** lol"* | @SigurdPotet | Checkout friction is real → prefer **API rails** (JLCPCB/LCSC APIs, Visa×OpenAI agentic checkout) over browser automation |
 | *"You didn't say how much it spent"* · *"What was the total cost?"* · *"How many tokens did this take?"* · *"So what was the price?"* · *"What did it charge you"* | @BoganBits, @Konstantinos, @chezle37, @NoHandedTripod, @intspg (+2 more) | **Axis A — cost. Seven people asked and got nothing.** The most requested and least answered number in the entire thread |
@@ -292,7 +292,7 @@ distribution is not random. Per counterfeit-tracking data, the most frequently c
 precisely what a DJ controller, a lamp with touch control, or any hobby-tier electronics design is
 made of. An agent told to minimize BOM cost will walk straight into that aisle.
 
-Rule for LuxoBench (and for your product):
+Rule for BlinkyBench (and for your product):
 
 1. **Passives and Asia-specific parts → LCSC** (landed cost, JLCPCB assembly fit).
 2. **Any programmable, analog or precision part → authorized distributor only** (DigiKey, Mouser,
@@ -450,7 +450,7 @@ question three separate times:
 > assume you didn't let Astra order some injection shot tooling, right? What material(s) did Astra pick
 > for the parts?"*
 
-Never answered. This matters for LuxoBench directly: **the headline capability claim is testable, and
+Never answered. This matters for BlinkyBench directly: **the headline capability claim is testable, and
 a domain expert in the replies already disbelieves it.** Any honest benchmark has to fix that — which
 is why the datasheet-comprehension step must be scored on *specific part numbers with page citations*
 (Cupertino's Copperplane already models this: "it reads the datasheet and shows you the page it got
@@ -473,7 +473,7 @@ verifiability complaint, and it is precisely the gap a benchmark closes.
 ### Free engineering advice the thread handed over
 
 - **@sebuzdugan — the best sentence in the entire dataset:** *"cad can fit nominal parts, but **tolerance
-  stacks decide whether batch two assembles**."* That is LuxoBench's epigraph, and no AI tool currently
+  stacks decide whether batch two assembles**."* That is BlinkyBench's epigraph, and no AI tool currently
   models it.
 - **@mahyarm8:** *"One thing to reduce assembly time but decreases repairability is **snap fitting** the
   plastic to reduce screwing time."* A real DFM tradeoff (assembly time vs. serviceability) that a spec

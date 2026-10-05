@@ -1,7 +1,7 @@
 /**
  * Fixture 1: the cube lamp.
  *
- * The reference is the render Keil's benchmark starts from (LUXOBENCH.md section 5):
+ * The reference is the render Keil's benchmark starts from (BLINKYBENCH.md section 5):
  * a rounded translucent dome glowing on a white, subtly filleted base with a printed
  * face. Everything here is the acceptance criteria for that object, expressed as data.
  */
@@ -68,7 +68,7 @@ export const LAMP_ACCEPTANCE_CRITERIA = {
     epoxyAllowed: false,
     customToolsAllowed: false,
   },
-  source: 'LUXOBENCH.md section 5, derived from the reference render and the reply-thread critiques',
+  source: 'BLINKYBENCH.md section 5, derived from the reference render and the reply-thread critiques',
 };
 
 /** A shell for the fixture that a designer fills in with their own parts list. */

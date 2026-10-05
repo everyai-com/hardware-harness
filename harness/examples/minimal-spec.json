@@ -1,0 +1,153 @@
+{
+  "name": "Tiny 3-key macro keypad",
+  "intent": "A wired USB macro keypad with three keys and a volume roller, no battery.",
+  "targetRetailUsd": 49,
+  "targetQuantities": [1, 100, 1000],
+  "origin": "china",
+  "power": {
+    "mainsInside": false,
+    "wireless": "none",
+    "battery": "none",
+    "usbPowered": true
+  },
+  "features": [
+    {
+      "id": "keys",
+      "label": "Three macro keys",
+      "expectedFace": "top",
+      "actualFace": "top",
+      "present": true,
+      "cosmetic": true
+    },
+    {
+      "id": "roller",
+      "label": "Volume roller",
+      "expectedFace": "top",
+      "actualFace": "top",
+      "present": true,
+      "cosmetic": true
+    },
+    {
+      "id": "usb-port",
+      "label": "USB-C port",
+      "expectedFace": "back",
+      "actualFace": "back",
+      "present": true,
+      "cosmetic": false
+    }
+  ],
+  "parts": [
+    {
+      "id": "case-top",
+      "label": "Case, upper half",
+      "kind": "custom",
+      "process": "fdm",
+      "material": "PETG",
+      "qty": 1,
+      "bboxMm": { "x": 64, "y": 44, "z": 10 },
+      "wallMm": 1.6,
+      "toleranceMm": 0.5
+    },
+    {
+      "id": "case-bottom",
+      "label": "Case, lower half",
+      "kind": "custom",
+      "process": "fdm",
+      "material": "PETG",
+      "qty": 1,
+      "bboxMm": { "x": 64, "y": 44, "z": 8 },
+      "wallMm": 1.6,
+      "toleranceMm": 0.5
+    },
+    {
+      "id": "main-pcb",
+      "label": "Main PCB, assembled (ATmega32U4, 3x MX footprints, encoder footprint)",
+      "kind": "catalog",
+      "process": "pcb_assembly",
+      "material": "FR4",
+      "qty": 1,
+      "bboxMm": { "x": 58, "y": 38, "z": 3 },
+      "purchasePriceUsd": 18,
+      "source": { "distributor": "lcsc", "inStock": true, "stockVerified": true, "alternates": 1 }
+    },
+    {
+      "id": "keycaps",
+      "label": "Blank PBT keycaps",
+      "kind": "catalog",
+      "process": "pcb_assembly",
+      "material": "PBT",
+      "qty": 3,
+      "bboxMm": { "x": 18, "y": 18, "z": 12 },
+      "purchasePriceUsd": 0.6,
+      "source": { "distributor": "lcsc", "inStock": true, "stockVerified": true, "alternates": 2, "partType": "mechanical" }
+    },
+    {
+      "id": "encoder",
+      "label": "Rotary encoder with push switch (EC11 class)",
+      "kind": "catalog",
+      "process": "pcb_assembly",
+      "material": "steel",
+      "qty": 1,
+      "bboxMm": { "x": 12, "y": 12, "z": 15 },
+      "purchasePriceUsd": 1.2,
+      "source": { "distributor": "authorized", "mpn": "EC11E15244G1", "inStock": true, "stockVerified": true, "alternates": 2, "partType": "sensor" }
+    },
+    {
+      "id": "usb-cable",
+      "label": "USB-C to USB-C cable, 1 m",
+      "kind": "catalog",
+      "process": "pcb_assembly",
+      "material": "PVC",
+      "qty": 1,
+      "bboxMm": { "x": 40, "y": 40, "z": 40 },
+      "purchasePriceUsd": 2.5,
+      "source": { "distributor": "lcsc", "inStock": true, "stockVerified": true, "alternates": 3, "partType": "connector" }
+    }
+  ],
+  "interfaces": [
+    {
+      "id": "case-halves",
+      "between": ["case-top", "case-bottom"],
+      "clearanceMm": 0.6,
+      "contributors": ["case-top", "case-bottom"]
+    }
+  ],
+  "nets": [
+    {
+      "id": "usb-data",
+      "name": "USB_DP",
+      "signal": "usb",
+      "endpoints": [{ "part": "main-pcb", "pin": "D+" }, { "part": "usb-cable", "pin": "D+" }]
+    },
+    {
+      "id": "enc-5v",
+      "name": "5V_RAIL",
+      "signal": "power",
+      "voltage": 5,
+      "endpoints": [{ "part": "main-pcb", "pin": "5V" }, { "part": "encoder", "pin": "VCC" }]
+    }
+  ],
+  "operations": [
+    { "id": "mount-pcb", "label": "Seat the assembled PCB in the lower case", "minutes": 3, "improvised": false },
+    { "id": "fit-encoder", "label": "Fit the encoder and press on the knob", "minutes": 2, "improvised": false },
+    { "id": "close-case", "label": "Snap the upper case shut and fit the keycaps", "minutes": 3, "improvised": false },
+    { "id": "flash-test", "label": "Flash QMK and test all keys plus the roller", "minutes": 6, "improvised": false }
+  ],
+  "firmware": {
+    "provided": true,
+    "language": "C (QMK)",
+    "toolchain": "avr-gcc 12",
+    "builds": true,
+    "testedOnHardware": false,
+    "pinMapMatchesFootprints": true,
+    "dependenciesPinned": true
+  },
+  "cad": {
+    "opensClean": true,
+    "watertight": true,
+    "requiresManualRepair": false
+  },
+  "costDisclosed": true,
+  "producedBy": "example",
+  "provenance": "harness/examples/minimal-spec.json — copy it and make it yours"
+}

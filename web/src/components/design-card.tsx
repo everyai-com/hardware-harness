@@ -23,7 +23,12 @@ export function DesignCard({ design }: { design: DesignRow }) {
         <h3 className="font-semibold leading-snug">{design.title}</h3>
         <ScoreBadge total={design.scoreTotal} gates={design.gatesPassed} />
       </div>
-      <p className="mt-2 text-sm text-muted">{design.producedBy ?? "unknown generator"}</p>
+      <p className="mt-2 flex items-center gap-2 text-sm text-muted">
+        {design.producedBy ?? "unknown generator"}
+        {design.targetPlatform === "muse-gadgets" && (
+          <span className="rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] text-accent">Muse</span>
+        )}
+      </p>
       <div className="mt-auto flex items-center gap-3 pt-4 font-mono text-xs text-muted">
         <span>{design.remixOf ? `remix of ${design.remixOf}` : "original"}</span>
         <span>♥ {design.likes}</span>

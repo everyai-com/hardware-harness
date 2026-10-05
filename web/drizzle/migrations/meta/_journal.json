@@ -15,6 +15,20 @@
       "when": 1789334719151,
       "tag": "0001_useful_randall_flagg",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791106434309,
+      "tag": "0002_red_morbius",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791186869298,
+      "tag": "0003_keen_barracuda",
+      "breakpoints": true
     }
   ]
 }
