@@ -417,23 +417,45 @@ function handle(req: JsonRpcRequest): void {
   }
 }
 
+/** One newline-delimited message: parse, shape-check, dispatch. */
+function handleLine(raw: string): void {
+  const line = raw.trim();
+  if (!line) return;
+  let msg: unknown;
+  try {
+    msg = JSON.parse(line);
+  } catch {
+    replyError(null, -32700, 'Parse error');
+    return;
+  }
+  if (msg === null || typeof msg !== 'object' || Array.isArray(msg) || typeof (msg as JsonRpcRequest).method !== 'string') {
+    const id = msg !== null && typeof msg === 'object' && !Array.isArray(msg) ? (msg as JsonRpcRequest).id : null;
+    replyError(id, -32600, 'Invalid Request');
+    return;
+  }
+  const req = msg as JsonRpcRequest;
+  try {
+    handle(req);
+  } catch (err) {
+    if (req.id !== undefined) replyError(req.id, -32603, err instanceof Error ? err.message : 'Internal error');
+  }
+}
+
 let buffer = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk: string) => {
   buffer += chunk;
   let index = buffer.indexOf('\n');
   while (index !== -1) {
-    const line = buffer.slice(0, index).trim();
+    handleLine(buffer.slice(0, index));
     buffer = buffer.slice(index + 1);
-    if (line) {
-      try {
-        handle(JSON.parse(line) as JsonRpcRequest);
-      } catch {
-        replyError(null, -32700, 'Parse error');
-      }
-    }
     index = buffer.indexOf('\n');
   }
 });
 
-process.stdin.on('end', () => process.exit(0));
+// Answer a final unterminated message, then let Node exit once stdout has
+// drained - process.exit() here would cut off responses still being written.
+process.stdin.on('end', () => {
+  handleLine(buffer);
+  buffer = '';
+});

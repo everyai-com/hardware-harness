@@ -99,7 +99,8 @@ export const MUSE_OTA_DEFAULT_OFF = new Set([
   'm5stack-cardputer-adv',
 ]);
 
-export const MUSE_BOARDS: Record<string, MuseBoard> = {
+// Null prototype: a board id like "__proto__" must not resolve as a board.
+export const MUSE_BOARDS: Record<string, MuseBoard> = Object.assign(Object.create(null), {
   'esp32-c5-devkitc-1': board({
     id: 'esp32-c5-devkitc-1',
     label: 'ESP32-C5 DevKitC-1',
@@ -335,7 +336,7 @@ export const MUSE_BOARDS: Record<string, MuseBoard> = {
     flashNote:
       'End of life. CH9102 bridge drops above 230400 baud; back up the 8 MB flash first. Speaker is a small buzzer; battery shows voltage only.',
   }),
-};
+} satisfies Record<string, MuseBoard>);
 
 /** The Linux device SDK turns a Pi or any BLE Linux box into a gadget. */
 export const MUSE_LINUX = {
