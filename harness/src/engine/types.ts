@@ -9,6 +9,7 @@
  */
 
 import type { ProcessId } from '../knowledge/processes.ts';
+import type { MuseCapability } from '../knowledge/platforms.ts';
 
 /** A face of the product, used for feature placement and cosmetic declarations. */
 export type Face = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'internal';
@@ -158,6 +159,21 @@ export interface Operation {
 
 export type Market = 'us' | 'eu' | 'uk' | 'ca';
 
+/**
+ * A target platform the design claims to run on. Today only the Muse Gadgets
+ * SDK - a claim the harness checks against the SDK's real board list, toolchain
+ * requirement and capability matrix.
+ */
+export interface PlatformTarget {
+  platform: 'muse-gadgets';
+  /** Which device SDK: ESP32 firmware, or the Linux/Pi install. */
+  sdk: 'esp32' | 'linux';
+  /** Board id from knowledge/platforms.ts (MUSE_BOARDS / MUSE_LINUX.boards). */
+  board: string;
+  /** What the design asks of the device; verified against the board's matrix. */
+  capabilities?: MuseCapability[];
+}
+
 export interface ProductSpec {
   id: string;
   name: string;
@@ -171,6 +187,8 @@ export interface ProductSpec {
   origin: 'china' | 'domestic' | 'other';
   /** Where it will be sold. This - not the sourcing country - drives CE/GPSR/ISED. */
   markets?: Market[];
+  /** A device platform the design claims to run on. Verified, not trusted. */
+  target?: PlatformTarget;
   power: PowerSpec;
   features: FeatureIntent[];
   parts: Part[];
@@ -206,7 +224,7 @@ export interface ProductSpec {
     linesApprox?: number;
     notes?: string[];
   };
-  /** CAD hygiene - the LuxoBench "no manual repair" gate. */
+  /** CAD hygiene - the BlinkyBench "no manual repair" gate. */
   cad?: {
     opensClean?: boolean;
     watertight?: boolean;

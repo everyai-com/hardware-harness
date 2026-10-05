@@ -1,5 +1,5 @@
 /**
- * Reconstructions of the two designs from the first live LuxoBench run (12 Sep 2026),
+ * Reconstructions of the two designs from the first live BlinkyBench run (12 Sep 2026),
  * plus nim's DJ controller for contrast.
  *
  * IMPORTANT: these are reconstructions from the public descriptions, not the authors'
@@ -20,6 +20,7 @@ import type { ProductSpec, Part, PartType } from '../engine/types.ts';
 import { LAMP_REFERENCE_FEATURES } from './lamp.ts';
 import { BLUEPRINT_VOICE_NOTE } from './blueprint-voice-note.ts';
 import { VOICE_NOTE_FIXED } from './voice-note-fixed.ts';
+import { MUSE_DESK_COMPANION } from './muse-desk-companion.ts';
 
 const RECONSTRUCTION_NOTE = 'Reconstructed from the public description of the 12 Sep 2026 run; not the author\'s actual BOM.';
 
@@ -325,4 +326,4 @@ export const DJ_CONTROLLER: ProductSpec = {
   provenance: 'Reconstruction from the public thread; community BOM estimate from @alexflorias. Not the author\'s actual BOM.',
 };
 
-export const FIXTURES: ProductSpec[] = [ASTRA_LAMP, FABLE_LAMP, DJ_CONTROLLER, BLUEPRINT_VOICE_NOTE, VOICE_NOTE_FIXED];
+export const FIXTURES: ProductSpec[] = [ASTRA_LAMP, FABLE_LAMP, DJ_CONTROLLER, BLUEPRINT_VOICE_NOTE, VOICE_NOTE_FIXED, MUSE_DESK_COMPANION];

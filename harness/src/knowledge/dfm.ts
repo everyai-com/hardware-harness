@@ -52,7 +52,10 @@ export type RuleId =
   | 'LIBRARIES_UNPINNED'
   | 'FIRMWARE_UNTESTED'
   | 'NO_NETS'
-  | 'NET_UNKNOWN_PART';
+  | 'NET_UNKNOWN_PART'
+  | 'TARGET_BOARD_UNSUPPORTED'
+  | 'TARGET_TOOLCHAIN_MISMATCH'
+  | 'TARGET_CAPABILITY_UNSUPPORTED';
 
 export const RULES: Record<RuleId, RuleDef> = {
   WALL_TOO_THIN: {
@@ -151,7 +154,7 @@ export const RULES: Record<RuleId, RuleDef> = {
     severity: 'warn',
     title: 'Part count above the assembly budget',
     rationale: 'Every part is a tolerance, a screw, a line in the instructions and a failure mode.',
-    evidence: '"HOW many frame pieces is that?" - @Avaviel; LuxoBench gate of 15 parts',
+    evidence: '"HOW many frame pieces is that?" - @Avaviel; BlinkyBench gate of 15 parts',
   },
   TOOLING_AMORTIZATION: {
     id: 'TOOLING_AMORTIZATION',
@@ -228,7 +231,7 @@ export const RULES: Record<RuleId, RuleDef> = {
     severity: 'block',
     title: 'Instructions require an improvised operation',
     rationale: '"File this down" and structural epoxy are not build steps, they are the design failing.',
-    evidence: 'LuxoBench gate: no improvised operations',
+    evidence: 'BlinkyBench gate: no improvised operations',
   },
   ASSEMBLY_TIME_HIGH: {
     id: 'ASSEMBLY_TIME_HIGH',
@@ -306,6 +309,27 @@ export const RULES: Record<RuleId, RuleDef> = {
     title: 'Landed cost not published with the design',
     rationale: 'Everyone publishes designs. Nobody publishes cost. It is the first thing buyers ask.',
     evidence: '23 cost questions, 0 answers on the viral thread; cost is first on Keil\'s own rubric',
+  },
+  TARGET_BOARD_UNSUPPORTED: {
+    id: 'TARGET_BOARD_UNSUPPORTED',
+    severity: 'block',
+    title: 'Targets a board the device SDK does not run on',
+    rationale: 'The SDK runs on a published board list. A claim of compatibility on anything else is a bring-up project, not a supported configuration.',
+    evidence: '"These are the boards the ESP32 Device SDK runs on" - muse-gadget-sdk esp32/devices/README.md; the Linux SDK needs BLE Linux, Debian 11+/Ubuntu 22.04+ - linux/README.md',
+  },
+  TARGET_TOOLCHAIN_MISMATCH: {
+    id: 'TARGET_TOOLCHAIN_MISMATCH',
+    severity: 'warn',
+    title: 'Toolchain version is not the one the SDK builds with',
+    rationale: 'The ESP32 Device SDK pins one ESP-IDF version. Building with another is an unsupported configuration that wastes board bring-up cycles.',
+    evidence: '"This firmware is built with Espressif\'s ESP-IDF, version 6.0.1. Other versions aren\'t supported." - muse-gadget-sdk esp32/README.md',
+  },
+  TARGET_CAPABILITY_UNSUPPORTED: {
+    id: 'TARGET_CAPABILITY_UNSUPPORTED',
+    severity: 'warn',
+    title: 'Design asks for a capability the board does not have',
+    rationale: 'The board list is a capability matrix: no PSRAM means no images or tunnel, the camera lives on one board, the Linux SDK has no screen. A design that assumes otherwise ships as a disappointment.',
+    evidence: 'Feature matrix per board - muse-gadget-sdk esp32/devices/README.md; Linux command surface (system.run/file.read/file.write/device.health) - linux/README.md',
   },
 };
 

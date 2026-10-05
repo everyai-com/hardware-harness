@@ -19,6 +19,8 @@ import { PROCESSES } from '../knowledge/processes.ts';
 import { MATERIALS, RULES } from '../knowledge/dfm.ts';
 import { CERTIFICATIONS, SOURCING_RULES, SOURCING_CHANNELS } from '../knowledge/compliance.ts';
 import { TARIFF_2026, LABOR_AND_QC, HIDDEN_COSTS } from '../knowledge/economics.ts';
+import { MUSE_SDK, MUSE_BOARDS, MUSE_LINUX, museBoard } from '../knowledge/platforms.ts';
+import { buildMuseScaffold } from '../engine/muse-scaffold.ts';
 import { FIXTURES } from '../fixtures/keil-runs.ts';
 import { LAMP_ACCEPTANCE_CRITERIA, LAMP_REFERENCE_FEATURES } from '../fixtures/lamp.ts';
 import type { ProductSpec, Part } from '../engine/types.ts';
@@ -162,10 +164,10 @@ const TOOLS: ToolDef[] = [
   {
     name: 'hardware_fixture',
     description:
-      'Get a reference fixture to design against - the cube lamp acceptance criteria and its feature-intent list, or a reconstructed design from the first public benchmark run.',
+      'Get a reference fixture to design against - the cube lamp acceptance criteria and its feature-intent list, or a reconstructed design from the first public benchmark run (muse-desk-companion is the gate-passing Muse Gadgets reference).',
     inputSchema: {
       type: 'object',
-      properties: { id: { type: 'string', description: 'lamp-astra | lamp-fable | dj-controller, or omit for the lamp criteria' } },
+      properties: { id: { type: 'string', description: 'lamp-astra | lamp-fable | dj-controller | voice-note-blueprint | voice-note-fixed | muse-desk-companion, or omit for the lamp criteria' } },
     },
     handler: (args) => {
       if (!args.id) {
@@ -175,6 +177,37 @@ const TOOLS: ToolDef[] = [
       if (!found) throw new Error(`Unknown fixture '${args.id}'. Options: ${FIXTURES.map((f) => f.id).join(', ')}`);
       return found;
     },
+  },
+  {
+    name: 'hardware_muse_platform',
+    description:
+      'The boards the Muse Gadget SDK actually runs on, with their real capabilities (display, images, touch, audio, push-to-talk, tunnel, camera, OTA) and documented build commands, plus the Linux/Pi target. Includes the pinned toolchain: ESP-IDF v6.0.1 only, other versions are unsupported.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        board: { type: 'string', description: 'Board id for full detail (e.g. m5stack-cores3).' },
+        sdk: { type: 'string', description: "'esp32' | 'linux' - filter the board list." },
+      },
+    },
+    handler: (args) => {
+      if (args.board) {
+        const board = museBoard(args.board as string);
+        if (!board) throw new Error(`Unknown board '${args.board}'. Options: ${Object.keys(MUSE_BOARDS).join(', ')}`);
+        return { sdk: MUSE_SDK, board };
+      }
+      return {
+        sdk: MUSE_SDK,
+        boards: args.sdk === 'linux' ? [] : Object.values(MUSE_BOARDS),
+        linux: args.sdk === 'esp32' ? undefined : MUSE_LINUX,
+      };
+    },
+  },
+  {
+    name: 'hardware_muse_scaffold',
+    description:
+      'Build the Muse Gadgets build kit for a targeted design: the sdkconfig overlay carrying the design\'s config deltas, a README with the exact toolchain/build/flash/pair steps for that board, design.json, and a setup script. It configures the upstream SDK - it does not generate firmware, and it never embeds an SDK token.',
+    inputSchema: { type: 'object', properties: { spec: specSchema }, required: ['spec'] },
+    handler: (args) => buildMuseScaffold(asSpec(args)),
   },
   {
     name: 'hardware_business_model',
@@ -269,6 +302,12 @@ const TOOLS: ToolDef[] = [
           usbPowered: 'boolean',
           externalAdapterCertified: 'boolean',
           maxWatts: 'number',
+        },
+        target: {
+          platform: "'muse-gadgets'",
+          sdk: "'esp32' | 'linux'",
+          board: "board id from hardware_muse_platform (e.g. 'm5stack-cores3', 'raspberry-pi')",
+          capabilities: "subset of the board's real capabilities - verified as gate G11, not trusted",
         },
         features: [
           {

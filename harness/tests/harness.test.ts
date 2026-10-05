@@ -5,9 +5,11 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import { ASTRA_LAMP, FABLE_LAMP, DJ_CONTROLLER } from '../src/fixtures/keil-runs.ts';
+import { MUSE_DESK_COMPANION } from '../src/fixtures/muse-desk-companion.ts';
 import { LAMP_REFERENCE_FEATURES } from '../src/fixtures/lamp.ts';
 import { evaluate, runGates } from '../src/engine/evaluate.ts';
 import { checkDFM } from '../src/engine/dfm-check.ts';
+import { buildMuseScaffold } from '../src/engine/muse-scaffold.ts';
 import { landedCost } from '../src/engine/cost.ts';
 import { recommendProcess, unitProcessCostUsd } from '../src/engine/process-select.ts';
 import { PROCESSES } from '../src/knowledge/processes.ts';
@@ -173,6 +175,120 @@ test('The lamp reference declares five features with expected faces', () => {
   assert.equal(LAMP_REFERENCE_FEATURES.find((f) => f.id === 'usb')!.expectedFace, 'back');
 });
 
+// ---- Muse Gadgets targets --------------------------------------------------
+
+test('The Muse reference design passes the platform gate and every other gate', () => {
+  const report = evaluate(MUSE_DESK_COMPANION);
+  const g11 = report.gates.results.find((g) => g.id === 'G11');
+  assert.ok(g11, 'G11 gate exists');
+  assert.equal(g11!.passed, true);
+  assert.match(g11!.detail, /verified/);
+  assert.equal(
+    report.findings.filter((f) => f.ruleId.startsWith('TARGET_')).length,
+    0,
+    'no platform findings on a correct target',
+  );
+  assert.equal(report.gates.passed, true, 'the reference fixture passes all gates');
+});
+
+test('An unsupported board blocks the compatibility claim', () => {
+  const spec: ProductSpec = structuredClone(MUSE_DESK_COMPANION);
+  spec.target = { ...spec.target!, board: 'nodemcu-esp8266' };
+  const report = evaluate(spec);
+  const finding = report.findings.find((f) => f.ruleId === 'TARGET_BOARD_UNSUPPORTED');
+  assert.ok(finding, 'unsupported board flagged');
+  assert.equal(finding!.severity, 'block');
+  assert.match(finding!.message, /nodemcu-esp8266/);
+  assert.equal(report.gates.results.find((g) => g.id === 'G11')!.passed, false);
+  assert.equal(report.gates.passed, false);
+});
+
+test('A toolchain that is not the pinned ESP-IDF is flagged', () => {
+  const wrong: ProductSpec = structuredClone(MUSE_DESK_COMPANION);
+  wrong.firmware = { ...wrong.firmware, toolchain: 'ESP-IDF v5.4, pinned' };
+  const finding = checkDFM(wrong).find((f) => f.ruleId === 'TARGET_TOOLCHAIN_MISMATCH');
+  assert.ok(finding, 'wrong version flagged');
+  assert.equal(finding!.severity, 'warn');
+  assert.match(finding!.message, /6\.0\.1/);
+
+  const missing: ProductSpec = structuredClone(MUSE_DESK_COMPANION);
+  missing.firmware = { ...missing.firmware, toolchain: undefined };
+  assert.ok(
+    checkDFM(missing).some((f) => f.ruleId === 'TARGET_TOOLCHAIN_MISMATCH'),
+    'undeclared toolchain flagged',
+  );
+});
+
+test('Capabilities are checked against the board matrix, not the wish list', () => {
+  const spec: ProductSpec = structuredClone(MUSE_DESK_COMPANION);
+  spec.target = { ...spec.target!, board: 'esp32-c5-devkitc-1', capabilities: ['images', 'camera'] };
+  const caps = checkDFM(spec).filter((f) => f.ruleId === 'TARGET_CAPABILITY_UNSUPPORTED');
+  assert.equal(caps.length, 2, 'both gaps flagged');
+  assert.ok(caps.every((f) => f.severity === 'warn'));
+  const images = caps.find((f) => f.subject === 'images')!;
+  assert.match(images.message, /does not support "images"/);
+
+  // The no-PSRAM explanation is for boards where that is the actual reason.
+  const c6: ProductSpec = structuredClone(MUSE_DESK_COMPANION);
+  c6.target = { ...c6.target!, board: 'waveshare-esp32-c6-touch-amoled-1.8', capabilities: ['images'] };
+  const c6Images = checkDFM(c6).find((f) => f.ruleId === 'TARGET_CAPABILITY_UNSUPPORTED')!;
+  assert.match(c6Images.message, /no PSRAM/);
+});
+
+test('Linux targets get the command surface, not a device UI', () => {
+  const spec: ProductSpec = structuredClone(MUSE_DESK_COMPANION);
+  spec.target = { platform: 'muse-gadgets', sdk: 'linux', board: 'raspberry-pi', capabilities: ['device_health', 'display'] };
+  const findings = checkDFM(spec);
+  const caps = findings.filter((f) => f.ruleId === 'TARGET_CAPABILITY_UNSUPPORTED');
+  assert.equal(caps.length, 1, 'only the display gap');
+  assert.match(caps[0].message, /no device UI/);
+  assert.ok(!findings.some((f) => f.ruleId === 'TARGET_TOOLCHAIN_MISMATCH'), 'no ESP-IDF requirement on Linux');
+
+  const bad: ProductSpec = structuredClone(spec);
+  bad.target = { ...spec.target!, board: 'windows-pc' };
+  assert.ok(checkDFM(bad).some((f) => f.ruleId === 'TARGET_BOARD_UNSUPPORTED'));
+});
+
+test('A board-only Muse gadget without firmware fails the firmware gate', () => {
+  const spec: ProductSpec = structuredClone(MUSE_DESK_COMPANION);
+  spec.firmware = { ...spec.firmware, provided: false };
+  const report = evaluate(spec);
+  assert.equal(report.gates.results.find((g) => g.id === 'G10')!.passed, false);
+  assert.ok(report.findings.some((f) => f.ruleId === 'FIRMWARE_MISSING'));
+});
+
+test('The build kit carries the overlay, commands and guide for the board', () => {
+  const scaffold = buildMuseScaffold(MUSE_DESK_COMPANION, { generatedAt: '2026-10-04T00:00:00.000Z' });
+  assert.equal(scaffold.sdk, 'esp32');
+  assert.equal(scaffold.board.id, 'waveshare-esp32-s3-touch-amoled-1.75');
+  assert.ok(scaffold.files['README.md'].includes('ESP-IDF v6.0.1'));
+  assert.ok(scaffold.files['README.md'].includes('MuseGadget'));
+  assert.ok(scaffold.files['README.md'].includes('musecases.netlify.app'), 'community builds link present');
+  assert.ok(scaffold.files['sdkconfig.muse-desk-companion'].includes('SDKCONFIG_DEFAULTS'));
+  assert.ok(scaffold.files['setup.sh'].startsWith('#!/usr/bin/env sh'));
+  const design = JSON.parse(scaffold.files['design.json']);
+  assert.equal(design.target.board, 'waveshare-esp32-s3-touch-amoled-1.75');
+  assert.equal(design.commands.build, scaffold.commands.build);
+  assert.equal(design.generatedAt, '2026-10-04T00:00:00.000Z');
+
+  // OTA asked on a board where it is off by default: the documented delta appears
+  // and the build command appends this design's overlay to the board's chain.
+  const c5: ProductSpec = structuredClone(MUSE_DESK_COMPANION);
+  c5.target = { ...c5.target!, board: 'esp32-c5-devkitc-1', capabilities: ['tunnel', 'ota'] };
+  const c5kit = buildMuseScaffold(c5);
+  assert.match(c5kit.files['sdkconfig.muse-desk-companion'], /CONFIG_HOMEHUB_OTA_ENABLED=y/);
+  assert.match(c5kit.commands.build, /muse-design\/sdkconfig\.muse-desk-companion/);
+
+  // Camera on the Watcher: opt-in config, emitted only there.
+  const watcher: ProductSpec = structuredClone(MUSE_DESK_COMPANION);
+  watcher.target = { ...watcher.target!, board: 'sensecap-watcher', capabilities: ['camera'] };
+  const wkit = buildMuseScaffold(watcher);
+  assert.match(wkit.files['sdkconfig.muse-desk-companion'], /CONFIG_MUSE_WATCHER_CAMERA=y/);
+
+  // A design with no target cannot have a kit.
+  assert.throws(() => buildMuseScaffold(ASTRA_LAMP), /no Muse Gadgets target/i);
+});
+
 // ---- MCP transport ---------------------------------------------------------
 
 function mcpCall(lines: unknown[]): Promise<any[]> {
@@ -217,6 +333,18 @@ test('MCP: initialize, tools/list and tools/call all work over stdio', async () 
       method: 'tools/call',
       params: { name: 'hardware_failure_taxonomy', arguments: {} },
     },
+    {
+      jsonrpc: '2.0',
+      id: 5,
+      method: 'tools/call',
+      params: { name: 'hardware_muse_platform', arguments: { board: 'm5stack-cores3' } },
+    },
+    {
+      jsonrpc: '2.0',
+      id: 6,
+      method: 'tools/call',
+      params: { name: 'hardware_muse_scaffold', arguments: { spec: MUSE_DESK_COMPANION } },
+    },
   ]);
 
   const init = responses.find((r) => r.id === 1);
@@ -226,7 +354,9 @@ test('MCP: initialize, tools/list and tools/call all work over stdio', async () 
   const names = list.result.tools.map((t: { name: string }) => t.name);
   assert.ok(names.includes('hardware_evaluate'));
   assert.ok(names.includes('hardware_landed_cost'));
-  assert.ok(names.length >= 12, `expected 12+ tools, got ${names.length}`);
+  assert.ok(names.includes('hardware_muse_platform'));
+  assert.ok(names.includes('hardware_muse_scaffold'));
+  assert.ok(names.length >= 16, `expected 16+ tools, got ${names.length}`);
 
   const gates = responses.find((r) => r.id === 3);
   assert.equal(gates.result.isError, false);
@@ -236,6 +366,17 @@ test('MCP: initialize, tools/list and tools/call all work over stdio', async () 
   const taxonomy = responses.find((r) => r.id === 4);
   const modes = JSON.parse(taxonomy.result.content[0].text);
   assert.ok(modes.length >= 15, 'failure taxonomy is populated');
+
+  const platform = responses.find((r) => r.id === 5);
+  const board = JSON.parse(platform.result.content[0].text);
+  assert.equal(board.board.chip, 'esp32s3');
+  assert.ok(board.board.capabilities.includes('push_to_talk'));
+  assert.equal(board.sdk.espIdf, 'v6.0.1');
+
+  const kit = responses.find((r) => r.id === 6);
+  const scaffold = JSON.parse(kit.result.content[0].text);
+  assert.ok(scaffold.files['README.md'].includes('ESP-IDF v6.0.1'));
+  assert.equal(scaffold.board.id, 'waveshare-esp32-s3-touch-amoled-1.75');
 });
 
 test('Electronics with no nets are flagged: wiring is a guess', () => {
