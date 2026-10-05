@@ -59,6 +59,7 @@ boots straight into a seeded gallery. The individual steps, if you want them:
 ```bash
 npm run harness:build            # bundle ../harness → src/lib/harness/engine.mjs
 npm run harness:verify           # bundle scores == CLI scores on all fixtures
+npm test                         # request parsing, rate-limit keys, slugs, kit zip, spec schema
 npm run db:generate              # drizzle migrations from src/lib/db/schema.ts
 npm run db:migrate:local         # apply to local D1
 node scripts/seed.mjs            # regenerate drizzle/seed.sql from the fixtures
@@ -79,8 +80,8 @@ npx wrangler d1 create blinky-db            # put the id in wrangler.jsonc
 npx wrangler kv namespace create KV       # put the id in wrangler.jsonc
 npx wrangler r2 bucket create blinky-assets
 npx wrangler vectorize create blinky-designs --dimensions=384 --metric=cosine
+npm run db:migrate:remote                 # apply migrations to prod D1 (before deploying new code)
 npm run deploy                            # opennextjs-cloudflare build + deploy
-npm run db:migrate:remote                 # apply migrations to prod D1
 npm run db:seed:remote                    # seed fixtures + kits
 npx wrangler secret put AI_MODEL          # optional model override
 npx wrangler secret put ADMIN_TOKEN       # gates the admin routes (backfill, rollup trigger)
@@ -91,11 +92,15 @@ curl -X POST https://YOUR-DEPLOYMENT.workers.dev/api/similar/backfill \
 cd ../workers/rollup && npx wrangler deploy && npx wrangler secret put ADMIN_TOKEN
 # then: curl 'https://blinky-rollup.<account>.workers.dev/?token=<ADMIN_TOKEN>'
 
-# Turnstile bot protection (optional, off until both are set):
+# Turnstile bot protection — recommended for any public deployment (off until both are set):
 # 1. create a widget at dash.cloudflare.com (?to=/:account/turnstile)
 # 2. add TURNSTILE_SITE_KEY to wrangler.jsonc vars, and:
 npx wrangler secret put TURNSTILE_SECRET_KEY
 ```
+
+**Upgrading an existing deployment:** run `npm run db:migrate:remote` before `npm run deploy`.
+Migration `0004_rate_limits` adds the table the rate limiter now uses; without it every
+publish, generation and like fails. If `ADMIN_TOKEN` was ever passed in a URL, rotate it.
 
 Note: the bundled worker can exceed the 3 MiB free-plan cap — the $5 Workers Paid
 plan (10 MiB) is the safe default.
@@ -119,6 +124,12 @@ unchanged, so a local `npm run setup` is all existing development needs.
 - `GET /api/quote?mpn=...` — best-effort live distributor lookup.
 - `GET` + `POST /api/designs/[id]/outcomes` — recorded builds, quotes, tests, notes.
 - `POST /api/jobs` — AI generate/refine runs with SSE stages; `GET /api/jobs/[id]` for pollers.
+
+Limits (per client IP — an IPv6 /64 counts as one — per UTC day): 20 publishes, 10 AI
+generations, 10 refinements, 100 likes, 30 outcome reports. A publish is only counted once
+the spec has passed validation, so iterating on `422` issues is free. Request bodies are
+capped at 256 KB, generate prompts at 4,000 characters. `spec.id` is ignored on publish: a
+design's id is always its slug.
 
 Docs with curl examples: `/api-docs`. The same engine is also an MCP server
 (`../harness/src/mcp/server.ts`) for Claude Code, Codex and any MCP client.
