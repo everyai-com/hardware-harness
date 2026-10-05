@@ -51,11 +51,6 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
-      # web/package-lock.json is npm-11-shaped (optional peer resolution
-      # differs); stock npm 10 from setup-node rejects it at install time.
-      - name: Use npm 11
-        run: npm install -g npm@11
-
       - name: Install
         working-directory: web
         run: npm ci --include=dev
