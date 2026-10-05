@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import type { ProductSpec } from "@/lib/harness/score";
 
 declare global {
@@ -51,43 +51,45 @@ type Edge = { from: string; to: string; label: string; color: string };
 export function WiringDiagram({ spec }: { spec: ProductSpec }) {
   const ref = useRef<HTMLDivElement>(null);
   const key = useId();
-  const nets = spec.nets ?? [];
-  const useNets = nets.length > 0;
+  const useNets = (spec.nets?.length ?? 0) > 0;
 
-  const nodes: { id: string; label: string }[] = [];
-  const edges: Edge[] = [];
+  const { nodes, edges, hasContent } = useMemo(() => {
+    const nets = spec.nets ?? [];
+    const nodes: { id: string; label: string }[] = [];
+    const edges: Edge[] = [];
 
-  if (useNets) {
-    const involved = new Set<string>();
-    for (const net of nets) for (const ep of net.endpoints) involved.add(ep.part);
-    const labelOf = new Map(spec.parts.map((p) => [p.id, p.label]));
-    for (const id of involved) nodes.push({ id, label: labelOf.get(id) ?? id });
-    for (const net of nets) {
-      const color = SIGNAL_COLOR[net.signal] ?? SIGNAL_COLOR.other;
-      const volt = net.voltage !== undefined ? ` ${net.voltage}V` : "";
-      const label = `${safe(net.name, 24)}${volt} [${net.signal}]`;
-      for (let i = 0; i < net.endpoints.length - 1; i++) {
+    if (useNets) {
+      const involved = new Set<string>();
+      for (const net of nets) for (const ep of net.endpoints) involved.add(ep.part);
+      const labelOf = new Map(spec.parts.map((p) => [p.id, p.label]));
+      for (const id of involved) nodes.push({ id, label: labelOf.get(id) ?? id });
+      for (const net of nets) {
+        const color = SIGNAL_COLOR[net.signal] ?? SIGNAL_COLOR.other;
+        const volt = net.voltage !== undefined ? ` ${net.voltage}V` : "";
+        const label = `${safe(net.name, 24)}${volt} [${net.signal}]`;
+        for (let i = 0; i < net.endpoints.length - 1; i++) {
+          edges.push({
+            from: net.endpoints[i].part,
+            to: net.endpoints[i + 1].part,
+            label,
+            color,
+          });
+        }
+      }
+    } else {
+      for (const p of spec.parts) nodes.push({ id: p.id, label: p.label });
+      for (const i of spec.interfaces) {
         edges.push({
-          from: net.endpoints[i].part,
-          to: net.endpoints[i + 1].part,
-          label,
-          color,
+          from: i.between[0],
+          to: i.between[1],
+          label: `fit ${i.clearanceMm} mm`,
+          color: "#8b8b90",
         });
       }
     }
-  } else {
-    for (const p of spec.parts) nodes.push({ id: p.id, label: p.label });
-    for (const i of spec.interfaces) {
-      edges.push({
-        from: i.between[0],
-        to: i.between[1],
-        label: `fit ${i.clearanceMm} mm`,
-        color: "#8b8b90",
-      });
-    }
-  }
 
-  const hasContent = nodes.length > 0 && edges.length > 0;
+    return { nodes, edges, hasContent: nodes.length > 0 && edges.length > 0 };
+  }, [spec, useNets]);
 
   useEffect(() => {
     if (!hasContent) return;

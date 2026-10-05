@@ -37,6 +37,26 @@ export const DISTRIBUTORS = ["lcsc", "authorized", "broker", "unknown"] as const
 export const WIRELESS = ["none", "bluetooth", "wifi", "lte", "custom"] as const;
 export const BATTERY = ["none", "lithium", "alkaline"] as const;
 
+/** Muse Gadgets capability set (mirrors harness/src/knowledge/platforms.ts). */
+export const MUSE_CAPABILITIES = [
+  "display",
+  "images",
+  "ui",
+  "touch",
+  "audio",
+  "push_to_talk",
+  "tunnel",
+  "battery_status",
+  "sensors",
+  "camera",
+  "ota",
+  "system_run",
+  "file_access",
+  "device_health",
+] as const;
+
+export const MUSE_SDKS = ["esp32", "linux"] as const;
+
 const num = z.coerce.number();
 const int = z.coerce.number().int();
 /** Accepts any casing and surrounding whitespace for enum values. */
@@ -172,7 +192,8 @@ const netSchema = z.object({
   name: z.string().min(1),
   signal: lcEnum(SIGNALS).default("other"),
   endpoints: z.array(netEndpointSchema).min(2),
-  voltage: num.positive().optional(),
+  // 0V is a legitimate ground reference (informational only — the engine never scores it).
+  voltage: num.min(0).optional(),
   note: z.string().optional(),
 });
 
@@ -206,6 +227,18 @@ const cadSchema = z.object({
   drcClean: z.boolean().optional(),
 });
 
+/**
+ * A device platform the design claims to run on. Membership of `board` is
+ * checked by the harness (TARGET_BOARD_UNSUPPORTED / gate G11), not here -
+ * this schema only keeps the shape honest at the API boundary.
+ */
+const targetSchema = z.object({
+  platform: z.literal("muse-gadgets"),
+  sdk: lcEnum(MUSE_SDKS),
+  board: z.string().min(2),
+  capabilities: z.array(lcEnum(MUSE_CAPABILITIES)).optional(),
+});
+
 export const specSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1),
@@ -215,6 +248,7 @@ export const specSchema = z.object({
   targetQuantities: z.array(int.positive()).nonempty().default([1, 100, 1000]),
   origin: lcEnum(["china", "domestic", "other"]).default("china"),
   markets: z.array(lcEnum(["us", "eu", "uk", "ca"])).optional(),
+  target: targetSchema.optional(),
   power: powerSchema.default({
     mainsInside: false,
     wireless: "none",

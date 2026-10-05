@@ -19,14 +19,15 @@
     "preharness:verify": "node scripts/build-harness.mjs",
     "harness:verify": "node scripts/verify-harness.mjs",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply luxo-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply luxo-db --remote",
-    "db:seed:local": "wrangler d1 execute luxo-db --local --file drizzle/seed.sql",
-    "db:seed:remote": "wrangler d1 execute luxo-db --remote --file drizzle/seed.sql"
+    "db:migrate:local": "wrangler d1 migrations apply blinky-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply blinky-db --remote",
+    "db:seed:local": "wrangler d1 execute blinky-db --local --file drizzle/seed.sql",
+    "db:seed:remote": "wrangler d1 execute blinky-db --remote --file drizzle/seed.sql"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.6",
     "drizzle-orm": "^0.45.2",
+    "fflate": "^0.8.3",
     "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",

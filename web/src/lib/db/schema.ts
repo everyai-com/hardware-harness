@@ -14,6 +14,8 @@ export const designs = sqliteTable(
     producedBy: text("produced_by"),
     remixOf: text("remix_of"),
     category: text("category"),
+    /** Denormalised from spec.target.platform — gallery badge + filter. */
+    targetPlatform: text("target_platform"),
     author: text("author"),
     likes: integer("likes").notNull().default(0),
     views: integer("views").notNull().default(0),
@@ -75,3 +77,25 @@ export const outcomes = sqliteTable(
 export type Design = typeof designs.$inferSelect;
 export type Kit = typeof kits.$inferSelect;
 export type Outcome = typeof outcomes.$inferSelect;
+
+/**
+ * Async AI jobs (generate / refine): created by POST /api/jobs, polled by the
+ * client for staged progress, pruned after 7 days by the rollup worker.
+ */
+export const jobs = sqliteTable(
+  "jobs",
+  {
+    id: text("id").primaryKey(), // crypto.randomUUID
+    type: text("type").notNull(), // "generate" | "refine"
+    status: text("status").notNull().default("queued"), // queued|running|done|failed
+    stage: text("stage"), // drafting|scoring|publishing + attempt info
+    payloadJson: text("payload_json").notNull(),
+    resultSlug: text("result_slug"),
+    error: text("error"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("jobs_created_idx").on(t.createdAt)],
+);
+
+export type Job = typeof jobs.$inferSelect;

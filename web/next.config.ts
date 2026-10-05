@@ -6,5 +6,7 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 // "getCloudflareContext has been called without having called initOpenNextCloudflareForDev".
 export default async function config(): Promise<NextConfig> {
   await initOpenNextCloudflareForDev().catch(() => {});
-  return {};
+  // The repo root holds a second lockfile (root apify tooling); pin the
+  // turbopack root here so Next stops guessing the workspace root.
+  return { turbopack: { root: process.cwd() } };
 }

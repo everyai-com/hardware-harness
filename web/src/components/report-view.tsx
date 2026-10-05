@@ -36,6 +36,30 @@ export function Gates({ report }: { report: EvaluationReport }) {
   );
 }
 
+export function ScoreRing({ total, size = 40 }: { total: number; size?: number }) {
+  const pct = Math.max(0, Math.min(100, (total / 5) * 100));
+  const c = 2 * Math.PI * 15.5;
+  const color = total >= 4 ? "stroke-pass" : total >= 2 ? "stroke-accent" : "stroke-fail";
+  return (
+    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox="0 0 36 36" className="-rotate-90">
+        <circle cx="18" cy="18" r="15.5" fill="none" className="stroke-line" strokeWidth="3" />
+        <circle
+          cx="18"
+          cy="18"
+          r="15.5"
+          fill="none"
+          className={color}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={`${(pct / 100) * c} ${c}`}
+        />
+      </svg>
+      <span className="absolute font-mono text-[11px] font-bold">{total.toFixed(1)}</span>
+    </span>
+  );
+}
+
 export function Metrics({ report }: { report: EvaluationReport }) {
   const m = report.metrics;
   const items = [
@@ -89,14 +113,26 @@ export function Scorecard({ report }: { report: EvaluationReport }) {
 
 export function CostTable({ report }: { report: EvaluationReport }) {
   const first = report.cost.quantities[0];
+  const maxUnit = Math.max(0.01, ...report.cost.quantities.map((q) => q.unitUsd));
   return (
-    <section className="rounded-xl border border-line bg-card p-5">
+    <section id="cost" className="scroll-mt-20 rounded-xl border border-line bg-card p-5">
       <h2 className="font-semibold">Landed cost</h2>
       <p className="mt-1 text-sm text-muted">
         ±{report.cost.uncertaintyPct}% estimates, including the lines that appear in no generated
         BOM. <span className="text-foreground">Build one ≠ sell one:</span> certification is a cost
         of selling.
       </p>
+      <div className="mt-4 space-y-2" aria-label="Unit cost by quantity">
+        {report.cost.quantities.map((q) => (
+          <div key={q.quantity} className="flex items-center gap-3 text-sm">
+            <span className="w-14 shrink-0 font-mono text-xs text-muted">×{q.quantity}</span>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-line">
+              <div className="h-full rounded-full bg-accent" style={{ width: `${(q.unitUsd / maxUnit) * 100}%` }} />
+            </div>
+            <span className="w-20 shrink-0 text-right font-mono text-xs">{usd2(q.unitUsd)}</span>
+          </div>
+        ))}
+      </div>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[540px] text-sm">
           <thead>
@@ -190,7 +226,7 @@ export function Findings({ report }: { report: EvaluationReport }) {
   const warns = report.findings.filter((f) => f.severity === "warn");
   const infos = report.findings.filter((f) => f.severity === "info");
   return (
-    <section className="rounded-xl border border-line bg-card p-5">
+    <section id="findings" className="scroll-mt-20 rounded-xl border border-line bg-card p-5">
       <h2 className="mb-4 font-semibold">DFM findings</h2>
       <div className="space-y-5">
         <FindingList title="Blocking" items={blocks} />

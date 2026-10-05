@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/evaluate — the harness over HTTP.
- * Body: a ProductSpec JSON. Response: the full LuxoBench EvaluationReport.
+ * Body: a ProductSpec JSON. Response: the full BlinkyBench EvaluationReport.
  * Nothing is stored. To publish into the gallery, use POST /api/designs.
  */
 export async function POST(req: NextRequest) {

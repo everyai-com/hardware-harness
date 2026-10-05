@@ -1,18 +1,26 @@
 import Link from "next/link";
 import { listDesigns, listKits, countDesigns } from "@/lib/db/queries";
+import { getModelStats } from "@/lib/stats";
 import { DesignCard } from "@/components/design-card";
+import { MUSE_STARTERS } from "@/lib/starters";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [designs, kits, total] = await Promise.all([listDesigns("score", 3), listKits(), countDesigns()]);
+  const [designs, kits, total, stats] = await Promise.all([
+    listDesigns("score", 3),
+    listKits(),
+    countDesigns(),
+    getModelStats(),
+  ]);
 
   return (
     <div className="space-y-14">
       <section className="space-y-5 pt-6">
         <p className="font-mono text-xs uppercase tracking-widest text-accent">
-          open source · blueprint alternative · luxobench inside
+          open source · blueprint alternative · muse gadgets · blinkybench inside
         </p>
+
         <h1 className="max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">
           Design hardware with AI.
           <br />
@@ -20,8 +28,8 @@ export default async function HomePage() {
         </h1>
         <p className="max-w-2xl text-lg text-muted">
           Describe a thing, get a buildable design — BOM, wiring, assembly guide, and a landed cost
-          table nobody else publishes. Every design is scored by the LuxoBench harness: DFM rules,
-          nine build gates, and the invisible lines (tooling, duty, certification) that generated
+          table nobody else publishes. Every design is scored by the BlinkyBench harness: DFM rules,
+          eleven build gates, and the invisible lines (tooling, duty, certification) that generated
           BOMs always leave out.
         </p>
         <div className="flex flex-wrap items-center gap-4">
@@ -36,6 +44,31 @@ export default async function HomePage() {
           </Link>
         </div>
       </section>
+
+      {stats && (
+        <section aria-label="Blinky in numbers">
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-4">
+            {[
+              { v: String(stats.totals.designs), k: "designs scored" },
+              { v: String(stats.models.length), k: "producers ranked" },
+              { v: `${stats.totals.avgScore.toFixed(2)}/5`, k: "average score" },
+              { v: String(stats.totals.builds), k: "builds recorded" },
+            ].map((i) => (
+              <div key={i.k} className="bg-card px-3 py-4 text-center">
+                <p className="font-mono text-2xl font-semibold">{i.v}</p>
+                <p className="text-[11px] uppercase tracking-wide text-muted">{i.k}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-center text-xs text-muted">
+            Live from the harness — see the{" "}
+            <Link href="/leaderboard" className="text-accent hover:underline">
+              leaderboard
+            </Link>
+            .
+          </p>
+        </section>
+      )}
 
       <section className="grid gap-4 sm:grid-cols-3">
         {[
@@ -64,6 +97,32 @@ export default async function HomePage() {
             <p className="mt-2 text-sm text-muted">{c.d}</p>
           </Link>
         ))}
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-xl font-semibold">Build a Muse gadget</h2>
+          <Link href="/generate" className="text-sm text-muted hover:text-foreground">
+            or design it yourself →
+          </Link>
+        </div>
+        <p className="max-w-2xl text-sm text-muted">
+          Blinky checks the board is one the Muse Gadgets SDK actually runs on, pins the toolchain,
+          and exports a flash-ready build kit. Start from a template:
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {MUSE_STARTERS.map((s) => (
+            <Link
+              key={s.id}
+              href={`/generate?template=${s.id}`}
+              className="rounded-xl border border-line bg-card p-5 transition-colors hover:border-accent"
+            >
+              <h3 className="font-semibold leading-snug">{s.title}</h3>
+              <p className="mt-2 text-sm text-muted">{s.blurb}</p>
+              <span className="mt-3 block font-mono text-[11px] text-accent">{s.target.board}</span>
+            </Link>
+          ))}
+        </div>
       </section>
 
       <section className="space-y-4">

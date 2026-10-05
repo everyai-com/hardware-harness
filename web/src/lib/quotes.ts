@@ -30,7 +30,7 @@ export async function getQuote(mpn: string): Promise<PartQuote | null> {
     const res = await fetch(
       `https://wapi.lcsc.com/production/search/v2/global?keyword=${encodeURIComponent(mpn)}`,
       {
-        headers: { "user-agent": "LUXO/0.1 (open-source hardware verifier; +https://github.com/everyai-com/hardware-harness)" },
+        headers: { "user-agent": "Blinky/0.1 (open-source hardware verifier; +https://github.com/everyai-com/hardware-harness)" },
         signal: AbortSignal.timeout(6000),
       },
     );

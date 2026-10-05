@@ -8,10 +8,16 @@ import {
   HIDDEN_COSTS,
   FAILURE_TAXONOMY,
   SOURCING_RULES,
+  MUSE_SDK,
+  MUSE_BOARDS,
+  MUSE_LINUX,
 } from "@/lib/harness/score";
-import type { RuleDef, Process, Material, CertRequirement, FailureMode } from "@/lib/harness/score";
+import type { RuleDef, Process, Material, CertRequirement, FailureMode, MuseBoard } from "@/lib/harness/score";
+import { listCommunityBuilds, FEED_PAGE } from "@/lib/community";
+import type { CommunityBuild } from "@/lib/community";
 
-export const metadata = { title: "Reference — LUXO" };
+export const metadata = { title: "Reference — Blinky" };
+export const dynamic = "force-dynamic";
 
 const SEV_STYLE: Record<string, string> = {
   block: "bg-fail/15 text-fail",
@@ -205,7 +211,113 @@ function Taxonomy() {
   );
 }
 
-export default function ReferencePage() {
+function MuseTargets() {
+  const boards = Object.values(MUSE_BOARDS) as MuseBoard[];
+  return (
+    <section className="space-y-3">
+      <h2 className="text-xl font-semibold">Muse Gadgets targets ({boards.length})</h2>
+      <p className="text-sm text-muted">
+        The boards the Muse Gadgets SDK actually runs on, with the real capability matrix — and the
+        pinned toolchain: ESP-IDF {MUSE_SDK.espIdf}, other versions unsupported. A design that
+        targets one is verified against this table (gate G11) and can export a flash-ready build
+        kit. Source:{" "}
+        <a href={MUSE_SDK.repo} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+          {MUSE_SDK.repo.replace("https://github.com/", "")}
+        </a>{" "}
+        ({MUSE_SDK.license}).
+      </p>
+      <div className="overflow-x-auto rounded-xl border border-line bg-card">
+        <table className="w-full min-w-[920px] text-sm">
+          <thead>
+            <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
+              <th className="px-4 py-3">Board</th>
+              <th className="px-4 py-3">Chip</th>
+              <th className="px-4 py-3">Flash / PSRAM</th>
+              <th className="px-4 py-3">Display</th>
+              <th className="px-4 py-3">Capabilities</th>
+              <th className="px-4 py-3">Build</th>
+            </tr>
+          </thead>
+          <tbody>
+            {boards.map((b) => (
+              <tr key={b.id} className="border-b border-line/50 align-top last:border-0">
+                <td className="px-4 py-3">
+                  {b.label}
+                  {b.experimental && <span className="block text-xs text-accent">experimental port</span>}
+                </td>
+                <td className="px-4 py-3 font-mono text-xs">{b.chip}</td>
+                <td className="px-4 py-3 font-mono text-xs">
+                  {b.flashMb} MB{b.psramMb ? ` / ${b.psramMb} MB` : " / —"}
+                </td>
+                <td className="px-4 py-3 text-xs">{b.display ?? "status light"}</td>
+                <td className="px-4 py-3 font-mono text-[11px]">{b.capabilities.join(", ")}</td>
+                <td className="px-4 py-3 font-mono text-[11px]">
+                  {b.buildCmd.startsWith("tools/") ? b.buildCmd : "idf.py (explicit flags)"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="rounded-xl border border-line bg-card p-4 text-sm text-muted">
+        <h3 className="text-sm font-semibold text-foreground">Linux device SDK</h3>
+        <p className="mt-1">
+          {MUSE_LINUX.boards.map((b) => b.label).join(" · ")}. Requirements: {MUSE_LINUX.requirements.join("; ")}.
+        </p>
+        <p className="mt-1 font-mono text-xs">
+          {MUSE_LINUX.commands.map((c) => c.id).join(" · ")} — install with{" "}
+          <span className="text-foreground">bash install.sh --sdk-token mgst_…</span>
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function CommunityBuilds({ builds }: { builds: CommunityBuild[] }) {
+  if (builds.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-line bg-card p-4">
+      <h3 className="text-sm font-semibold text-foreground">Community builds ({builds.length})</h3>
+      <p className="mt-1 text-xs text-muted">
+        Real Muse Gadgets builds tracked from X by{" "}
+        <a href={FEED_PAGE} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+          Musecases
+        </a>{" "}
+        (third-party). Evidence that the board matrix is a floor, not a ceiling.
+      </p>
+      <ul className="mt-3 space-y-2.5">
+        {builds.slice(0, 8).map((b) => (
+          <li key={b.id} className="text-sm">
+            <a href={b.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+              {b.title}
+            </a>
+            {b.pinned && (
+              <span className="ml-2 rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] text-accent">announcement</span>
+            )}
+            {b.editorsPick && !b.pinned && (
+              <span className="ml-2 rounded bg-accent/15 px-1.5 py-0.5 font-mono text-[11px] text-accent">pick</span>
+            )}
+            <span className="ml-2 font-mono text-xs text-muted">{b.handle}</span>
+            <span className="mt-0.5 block text-xs text-muted">{b.description.slice(0, 160)}</span>
+          </li>
+        ))}
+      </ul>
+      {builds.length > 8 && (
+        <a
+          href={FEED_PAGE}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-block text-xs text-accent hover:underline"
+        >
+          see all {builds.length} ↗
+        </a>
+      )}
+    </div>
+  );
+}
+
+export default async function ReferencePage() {
+  const builds = await listCommunityBuilds();
   return (
     <div className="space-y-12">
       <header className="space-y-2">
@@ -220,6 +332,8 @@ export default function ReferencePage() {
       <Processes />
       <Materials />
       <Certifications />
+      <MuseTargets />
+      <CommunityBuilds builds={builds} />
       <Economics />
       <Taxonomy />
     </div>

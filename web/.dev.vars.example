@@ -2,5 +2,17 @@
 # https://developers.cloudflare.com/workers-ai/models/
 AI_MODEL="@cf/meta/llama-3.3-70b-instruct-fp8-fast"
 
+# Shared secret for the admin routes (vector backfill, stats rollup).
+# Any long random string locally; generate with: node -e "console.log(require('crypto').randomUUID())"
+# ADMIN_TOKEN="local-dev-token"
+
+# Turnstile bot protection (optional, off when unset). Test keys for local dev —
+# NEVER set these in production (the dummy token XXXX.DUMMY.TOKEN.XXXX always passes):
+# TURNSTILE_SITE_KEY="1x00000000000000000000AA"
+# TURNSTILE_SECRET_KEY="1x0000000000000000000000000000000AA"
+# Production: create a widget at dash.cloudflare.com (?to=/:account/turnstile), then:
+#   npx wrangler secret put TURNSTILE_SECRET_KEY   # real secret, always a secret
+# and set TURNSTILE_SITE_KEY as a var in wrangler.jsonc.
+
 # Copy to .dev.vars for local dev. In production, set these as Worker secrets/vars:
 #   npx wrangler secret put AI_MODEL

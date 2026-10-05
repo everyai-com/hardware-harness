@@ -1,15 +1,16 @@
 import { drizzle } from "drizzle-orm/d1";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { getEnv } from "@/lib/cf";
-import { designs, kits, votes, outcomes } from "./schema";
+import { designs, kits, votes, outcomes, jobs } from "./schema";
 
 function db() {
-  return drizzle(getEnv().DB, { schema: { designs, kits, votes, outcomes } });
+  return drizzle(getEnv().DB, { schema: { designs, kits, votes, outcomes, jobs } });
 }
 
 export type DesignRow = typeof designs.$inferSelect;
 export type KitRow = typeof kits.$inferSelect;
 export type OutcomeRow = typeof outcomes.$inferSelect;
+export type JobRow = typeof jobs.$inferSelect;
 
 export async function insertDesign(row: typeof designs.$inferInsert): Promise<void> {
   await db().insert(designs).values(row).onConflictDoNothing();
@@ -25,12 +26,30 @@ export async function getDesign(id: string): Promise<DesignRow | undefined> {
   return rows[0];
 }
 
+/** Batch fetch in one query, returned in the input id order. Skips missing ids. */
+export async function getDesigns(ids: string[]): Promise<DesignRow[]> {
+  if (ids.length === 0) return [];
+  const rows = await db().select().from(designs).where(inArray(designs.id, ids)).limit(ids.length);
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.flatMap((id) => {
+    const row = byId.get(id);
+    return row ? [row] : [];
+  });
+}
+
 export type Sort = "new" | "score" | "likes";
 
-export async function listDesigns(sort: Sort = "new", limit = 60): Promise<DesignRow[]> {
+export async function listDesigns(
+  sort: Sort = "new",
+  limit = 60,
+  opts: { museOnly?: boolean } = {},
+): Promise<DesignRow[]> {
   const order =
     sort === "score" ? desc(designs.scoreTotal) : sort === "likes" ? desc(designs.likes) : desc(designs.createdAt);
-  return db().select().from(designs).where(eq(designs.isPublic, true)).orderBy(order).limit(limit);
+  const where = opts.museOnly
+    ? and(eq(designs.isPublic, true), eq(designs.targetPlatform, "muse-gadgets"))
+    : eq(designs.isPublic, true);
+  return db().select().from(designs).where(where).orderBy(order).limit(limit);
 }
 
 export async function listRemixes(ofId: string): Promise<DesignRow[]> {
@@ -90,4 +109,23 @@ export async function listOutcomes(designId: string): Promise<OutcomeRow[]> {
 export async function addOutcome(row: typeof outcomes.$inferInsert): Promise<OutcomeRow> {
   const inserted = await db().insert(outcomes).values(row).returning();
   return inserted[0]!;
+}
+
+export async function createJob(row: typeof jobs.$inferInsert): Promise<void> {
+  await db().insert(jobs).values(row);
+}
+
+export async function getJob(id: string): Promise<JobRow | undefined> {
+  const rows = await db().select().from(jobs).where(eq(jobs.id, id)).limit(1);
+  return rows[0];
+}
+
+export async function updateJob(
+  id: string,
+  patch: Partial<Pick<JobRow, "status" | "stage" | "resultSlug" | "error">>,
+): Promise<void> {
+  await db()
+    .update(jobs)
+    .set({ ...patch, updatedAt: new Date().toISOString() })
+    .where(eq(jobs.id, id));
 }

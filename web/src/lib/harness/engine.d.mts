@@ -35,7 +35,22 @@ export type {
   PowerSpec,
   Face,
   Market,
+  PlatformTarget,
 } from "../../../../harness/src/engine/types.ts";
+
+// Target platform — Muse Gadgets SDK
+export {
+  MUSE_SDK,
+  MUSE_BOARDS,
+  MUSE_LINUX,
+  MUSE_CAPABILITIES,
+  MUSE_OTA_DEFAULT_OFF,
+  museBoard,
+  museBoardIds,
+} from "../../../../harness/src/knowledge/platforms.ts";
+export type { MuseBoard, MuseCapability } from "../../../../harness/src/knowledge/platforms.ts";
+export { buildMuseScaffold } from "../../../../harness/src/engine/muse-scaffold.ts";
+export type { MuseScaffold, MuseScaffoldBoard, MuseScaffoldCommands } from "../../../../harness/src/engine/muse-scaffold.ts";
 
 export { PROCESSES } from "../../../../harness/src/knowledge/processes.ts";
 export type { ProcessId, Process } from "../../../../harness/src/knowledge/processes.ts";
@@ -56,4 +71,5 @@ export type { FailureMode } from "../../../../harness/src/knowledge/taxonomy.ts"
 export { FIXTURES, ASTRA_LAMP, FABLE_LAMP, DJ_CONTROLLER } from "../../../../harness/src/fixtures/keil-runs.ts";
 export { BLUEPRINT_VOICE_NOTE } from "../../../../harness/src/fixtures/blueprint-voice-note.ts";
 export { VOICE_NOTE_FIXED } from "../../../../harness/src/fixtures/voice-note-fixed.ts";
+export { MUSE_DESK_COMPANION } from "../../../../harness/src/fixtures/muse-desk-companion.ts";
 export { LAMP_ACCEPTANCE_CRITERIA, LAMP_REFERENCE_FEATURES, emptyLampSpec } from "../../../../harness/src/fixtures/lamp.ts";
